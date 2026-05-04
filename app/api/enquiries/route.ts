@@ -79,7 +79,7 @@ export async function POST(req: NextRequest) {
         Contact: ${validatedData.name} - ${validatedData.phone} - ${validatedData.email || "No email provided"}
         Message: ${validatedData.message || "No message provided"}
         
-        View in Admin Dashboard: ${process.env.NEXTAUTH_URL}/admin/enquiries
+        View in Admin Dashboard: ${process.env.NEXTAUTH_URL}/admin#leads
       `,
     });
 

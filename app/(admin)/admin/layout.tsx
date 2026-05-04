@@ -9,7 +9,6 @@ import {
   LayoutDashboard,
   Building2,
   PlusSquare,
-  Inbox,
   Settings,
   LogOut,
   Menu,
@@ -20,7 +19,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import {
   Dialog,
   DialogContent,
@@ -34,7 +33,6 @@ const sidebarLinks = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/properties", label: "Properties", icon: Building2 },
   { href: "/admin/properties/new", label: "Add Property", icon: PlusSquare },
-  { href: "/admin/enquiries", label: "Leads", icon: Inbox },
   { href: "/admin/settings", label: "Settings", icon: Settings },
 ];
 
@@ -107,6 +105,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   </Button>
                 </SheetTrigger>
                 <SheetContent side="left" className="w-72 p-0">
+                  <SheetTitle className="sr-only">Admin navigation</SheetTitle>
                   <SidebarContent />
                 </SheetContent>
               </Sheet>

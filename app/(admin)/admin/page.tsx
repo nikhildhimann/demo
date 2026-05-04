@@ -4,6 +4,7 @@ import { requireAdmin } from "@/lib/admin";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { EnquiriesClient } from "@/components/admin/EnquiriesClient";
 
 export const dynamic = "force-dynamic";
 
@@ -96,7 +97,7 @@ export default async function AdminHomePage() {
               <Link href="/admin/properties/new">Add Property</Link>
             </Button>
             <Button asChild variant="outline" className="w-full justify-start">
-              <Link href="/admin/enquiries">View Leads</Link>
+              <Link href="#leads">View Leads</Link>
             </Button>
             <Button asChild variant="outline" className="w-full justify-start">
               <Link href="/admin/settings">Manage Settings</Link>
@@ -149,6 +150,8 @@ export default async function AdminHomePage() {
           )}
         </CardContent>
       </Card>
+
+      <EnquiriesClient embedded />
     </div>
   );
 }

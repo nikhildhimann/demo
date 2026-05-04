@@ -72,7 +72,7 @@ interface Enquiry {
   } | null;
 }
 
-export function EnquiriesClient() {
+export function EnquiriesClient({ embedded = false }: { embedded?: boolean }) {
   const [enquiries, setEnquiries] = useState<Enquiry[]>([]);
   const [stats, setStats] = useState({ today: 0, week: 0, month: 0, total: 0 });
   const [isLoading, setIsLoading] = useState(true);
@@ -191,10 +191,12 @@ export function EnquiriesClient() {
   };
 
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-8 min-h-screen">
+    <div id={embedded ? "leads" : undefined} className={embedded ? "space-y-6" : "p-8 max-w-7xl mx-auto space-y-8 min-h-screen"}>
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Admin Leads Dashboard</h1>
+          <h1 className={embedded ? "text-2xl font-bold tracking-tight" : "text-3xl font-bold tracking-tight"}>
+            Admin Leads Dashboard
+          </h1>
           <p className="text-muted-foreground">Monitor and manage property enquiries and leads.</p>
         </div>
         <Button onClick={exportToCSV} variant="outline" size="sm">
