@@ -7,11 +7,6 @@ export default withAuth(
     const isAdmin = token?.role === "ADMIN";
     const pathname = req.nextUrl.pathname;
 
-    // Redirect /admin to the enquiries dashboard if logged in as admin
-    if (pathname === "/admin" && isAdmin) {
-      return NextResponse.redirect(new URL("/admin/enquiries", req.url));
-    }
-
     // Role check for all /admin routes
     if (pathname.startsWith("/admin") && !isAdmin) {
       return NextResponse.redirect(new URL("/", req.url));

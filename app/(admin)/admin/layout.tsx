@@ -9,6 +9,7 @@ import {
   LayoutDashboard,
   Building2,
   PlusSquare,
+  Inbox,
   Settings,
   LogOut,
   Menu,
@@ -33,6 +34,7 @@ const sidebarLinks = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/properties", label: "Properties", icon: Building2 },
   { href: "/admin/properties/new", label: "Add Property", icon: PlusSquare },
+  { href: "/admin/enquiries", label: "Leads", icon: Inbox },
   { href: "/admin/settings", label: "Settings", icon: Settings },
 ];
 

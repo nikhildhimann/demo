@@ -34,12 +34,13 @@ function LoginPageContent() {
         redirect: false,
         email: formData.email,
         password: formData.password,
+        callbackUrl,
       });
 
       if (res?.error) {
         setError(res.error);
       } else {
-        router.push(callbackUrl);
+        router.push(res?.url || callbackUrl);
         router.refresh();
       }
     } catch {
