@@ -7,7 +7,7 @@ import { revalidatePath } from "next/cache";
 
 async function assertAdmin() {
   const session = await getServerSession(authOptions);
-  if (!session || (session.user as any).role !== "ADMIN") {
+  if (!session || session.user.role !== "ADMIN") {
     return null;
   }
   return session;
@@ -15,7 +15,7 @@ async function assertAdmin() {
 
 export async function GET() {
   const session = await assertAdmin();
-  if (!session) return new NextResponse("Unauthorized", { status: 401 });
+  if (!session) return NextResponse.json({ error: "Admin access required" }, { status: 401 });
 
   const properties = await prisma.property.findMany({
     include: { images: { orderBy: { order: "asc" } } },
@@ -28,7 +28,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const session = await assertAdmin();
-    if (!session) return new NextResponse("Unauthorized", { status: 401 });
+    if (!session) return NextResponse.json({ error: "Admin access required" }, { status: 401 });
 
     const data = normalizePropertyInput(await req.json());
     const property = await prisma.property.create({
@@ -49,18 +49,19 @@ export async function POST(req: NextRequest) {
         city: data.city,
         state: data.state,
         zip: data.zip,
+        zipCode: data.zipCode,
         country: data.country,
         amenities: data.amenities,
         featured: data.featured,
-        authorId: (session.user as any).id,
+        authorId: session.user.id,
         images: {
           create: data.images.map((image, index) => ({
             url: image.url,
-            publicId: image.publicId || "manual",
+            publicId: (image as any).publicId || "legacy-image-" + Date.now() + "-" + index,
             order: image.order || index,
           })),
         },
-      } as any,
+      },
       include: { images: true },
     });
 

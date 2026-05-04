@@ -1,12 +1,14 @@
 import { MetadataRoute } from 'next'
+import { getSiteSettings } from "@/lib/settings"
 
-export default function robots(): MetadataRoute.Robots {
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXTAUTH_URL || 'http://localhost:3000'
+export default async function robots(): Promise<MetadataRoute.Robots> {
+  const settings = await getSiteSettings();
+  const baseUrl = settings.siteUrl;
   return {
     rules: {
       userAgent: '*',
       allow: '/',
-      disallow: ['/admin/', '/api/admin/'],
+      disallow: ['/admin/', '/api/admin/', '/api/auth/', '/login', '/register', '/dashboard'],
     },
     sitemap: `${baseUrl}/sitemap.xml`,
   }

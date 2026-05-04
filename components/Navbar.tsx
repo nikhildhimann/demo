@@ -1,26 +1,13 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
-import {
-  Menu,
-  X,
-  Building2,
-  ChevronDown,
-  ChevronRight,
-  Home,
-  KeyRound,
-  BadgeDollarSign,
-  Star,
-} from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
+import { BadgeDollarSign, Building2, ChevronDown, ChevronRight, Home, KeyRound, Menu, Star, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { siteConfig } from "@/data/siteConfig";
-
-const WHATSAPP_CTA =
-  `https://wa.me/${siteConfig.whatsapp}?text=Hi%20I%20am%20interested%20in%20your%20property%20management%20services`;
+import type { PublicSiteSettings } from "@/types/settings";
 
 const desktopNavLinks = [
   { name: "Home", href: "/" },
@@ -39,7 +26,7 @@ const propertyListingItems = [
   { name: "Featured Properties", href: "/properties?favorites=true", icon: Star },
 ];
 
-export function Navbar() {
+export function Navbar({ settings }: { settings: PublicSiteSettings }) {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isDesktopDropdownOpen, setIsDesktopDropdownOpen] = useState(false);
@@ -48,9 +35,7 @@ export function Navbar() {
   const pathname = usePathname();
 
   useEffect(() => {
-    const handleScroll = () => {
-      setIsScrolled(window.scrollY > 20);
-    };
+    const handleScroll = () => setIsScrolled(window.scrollY > 20);
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
@@ -58,9 +43,7 @@ export function Navbar() {
   useEffect(() => {
     const handleOutsideClick = (event: MouseEvent) => {
       if (!dropdownRef.current) return;
-      if (!dropdownRef.current.contains(event.target as Node)) {
-        setIsDesktopDropdownOpen(false);
-      }
+      if (!dropdownRef.current.contains(event.target as Node)) setIsDesktopDropdownOpen(false);
     };
 
     document.addEventListener("mousedown", handleOutsideClick);
@@ -75,6 +58,9 @@ export function Navbar() {
 
   if (pathname.startsWith("/admin")) return null;
 
+  const whatsappCta = settings.whatsappNumber
+    ? `https://wa.me/${settings.whatsappNumber}?text=${encodeURIComponent("Hi, I am interested in your real estate services.")}`
+    : "";
   const isPropertiesActive = pathname.startsWith("/properties") || pathname === "/sell";
   const isLinkActive = (href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href));
 
@@ -91,28 +77,15 @@ export function Navbar() {
       )}
     >
       <div className="container mx-auto flex items-center justify-between px-4">
-        {/* Logo */}
-        <Link href="/" scroll={true} className="flex items-center gap-2 group">
-          <motion.div 
-            whileHover={{ rotate: 10 }}
-            className={cn(
-              "p-2 rounded-lg transition-colors",
-              "bg-slate-900 text-white"
-            )}
-          >
+        <Link href="/" scroll={true} className="flex min-w-0 items-center gap-2 group">
+          <motion.div whileHover={{ rotate: 10 }} className="rounded-lg bg-slate-900 p-2 text-white transition-colors">
             <Building2 className="w-6 h-6" />
           </motion.div>
-          <span
-            className={cn(
-              "text-xl font-bold tracking-tight",
-              "text-slate-950"
-            )}
-          >
-            {siteConfig.logoText}
+          <span className="truncate text-xl font-bold tracking-tight text-slate-950">
+            {settings.businessName}
           </span>
         </Link>
 
-        {/* Desktop Links */}
         <nav className="hidden items-center gap-8 md:flex">
           {desktopNavLinks.slice(0, 1).map((link) => (
             <Link
@@ -126,11 +99,7 @@ export function Navbar() {
               )}
             >
               {link.name}
-              <span className={cn(
-                "absolute -bottom-1 left-0 h-0.5 transition-all duration-200",
-                "bg-emerald-500 w-0 group-hover:w-full",
-                isLinkActive(link.href) && "w-full"
-              )} />
+              <span className={cn("absolute -bottom-1 left-0 h-0.5 bg-emerald-500 transition-all duration-200 group-hover:w-full", isLinkActive(link.href) ? "w-full" : "w-0")} />
             </Link>
           ))}
 
@@ -150,12 +119,7 @@ export function Navbar() {
               )}
             >
               Properties
-              <ChevronDown
-                className={cn(
-                  "h-4 w-4 transition-transform duration-200",
-                  isDesktopDropdownOpen ? "rotate-180" : "rotate-0"
-                )}
-              />
+              <ChevronDown className={cn("h-4 w-4 transition-transform duration-200", isDesktopDropdownOpen ? "rotate-180" : "rotate-0")} />
             </button>
 
             <AnimatePresence>
@@ -167,41 +131,25 @@ export function Navbar() {
                   transition={{ duration: 0.18, ease: "easeOut" }}
                   className="absolute left-1/2 top-10 w-80 -translate-x-1/2 rounded-2xl border border-slate-200 bg-white p-3 shadow-xl"
                 >
-                  <div className="space-y-1">
-                    {propertyMenuItems.map((item) => {
-                      const Icon = item.icon;
-                      return (
-                        <Link
-                          key={item.name}
-                          href={item.href}
-                          scroll={true}
-                          onClick={() => setIsDesktopDropdownOpen(false)}
-                          className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
-                        >
-                          <Icon className="h-4 w-4 text-slate-500" />
-                          {item.name}
-                        </Link>
-                      );
-                    })}
-                  </div>
-                  <div className="my-2 h-px bg-slate-200" />
-                  <div className="space-y-1">
-                    {propertyListingItems.map((item) => {
-                      const Icon = item.icon;
-                      return (
-                        <Link
-                          key={item.name}
-                          href={item.href}
-                          scroll={true}
-                          onClick={() => setIsDesktopDropdownOpen(false)}
-                          className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
-                        >
-                          <Icon className="h-4 w-4 text-slate-500" />
-                          {item.name}
-                        </Link>
-                      );
-                    })}
-                  </div>
+                  {[propertyMenuItems, propertyListingItems].map((group, index) => (
+                    <div key={index} className={cn("space-y-1", index === 1 && "mt-2 border-t border-slate-200 pt-2")}>
+                      {group.map((item) => {
+                        const Icon = item.icon;
+                        return (
+                          <Link
+                            key={item.name}
+                            href={item.href}
+                            scroll={true}
+                            onClick={() => setIsDesktopDropdownOpen(false)}
+                            className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+                          >
+                            <Icon className="h-4 w-4 text-slate-500" />
+                            {item.name}
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  ))}
                 </motion.div>
               )}
             </AnimatePresence>
@@ -219,30 +167,23 @@ export function Navbar() {
               )}
             >
               {link.name}
-              <span className={cn(
-                "absolute -bottom-1 left-0 h-0.5 transition-all duration-200",
-                "bg-emerald-500 w-0 group-hover:w-full",
-                isLinkActive(link.href) && "w-full"
-              )} />
+              <span className={cn("absolute -bottom-1 left-0 h-0.5 bg-emerald-500 transition-all duration-200 group-hover:w-full", isLinkActive(link.href) ? "w-full" : "w-0")} />
             </Link>
           ))}
         </nav>
 
-        {/* Desktop Actions */}
         <div className="hidden items-center md:flex">
-          <Button className="h-10 rounded-full bg-emerald-600 px-5 font-semibold text-white shadow-sm shadow-emerald-600/20 hover:bg-emerald-700 focus-visible:ring-emerald-500/40" asChild>
-            <a href={WHATSAPP_CTA} target="_blank" rel="noreferrer">
-              Talk on WhatsApp
-            </a>
-          </Button>
+          {whatsappCta && (
+            <Button className="h-10 rounded-full bg-emerald-600 px-5 font-semibold text-white shadow-sm shadow-emerald-600/20 hover:bg-emerald-700 focus-visible:ring-emerald-500/40" asChild>
+              <a href={whatsappCta} target="_blank" rel="noreferrer">
+                Talk on WhatsApp
+              </a>
+            </Button>
+          )}
         </div>
 
-        {/* Mobile Menu Button */}
         <button
-          className={cn(
-            "rounded-md p-2 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 md:hidden",
-            "border border-slate-200 bg-white text-slate-950 shadow-sm hover:bg-slate-50"
-          )}
+          className="rounded-md border border-slate-200 bg-white p-2 text-slate-950 shadow-sm transition-all duration-200 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 md:hidden"
           onClick={() => setIsMobileMenuOpen(true)}
           aria-label="Open navigation menu"
         >
@@ -250,7 +191,6 @@ export function Navbar() {
         </button>
       </div>
 
-      {/* Mobile Menu */}
       <AnimatePresence>
         {isMobileMenuOpen && (
           <motion.div
@@ -260,18 +200,18 @@ export function Navbar() {
             transition={{ type: "spring", damping: 25, stiffness: 200 }}
             className="fixed inset-0 z-[9999] bg-white shadow-2xl"
           >
-            <div className="flex flex-col h-full px-4 py-6">
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-2">
-                  <div className="p-2 rounded-lg bg-primary text-white">
+            <div className="flex h-[100dvh] flex-col px-4 py-6">
+              <div className="mb-6 flex items-center justify-between">
+                <div className="flex min-w-0 items-center gap-2">
+                  <div className="rounded-lg bg-primary p-2 text-white">
                     <Building2 className="w-5 h-5" />
                   </div>
-                  <span className="text-lg font-bold text-slate-900">
-                    {siteConfig.logoText}
+                  <span className="truncate text-lg font-bold text-slate-900">
+                    {settings.businessName}
                   </span>
                 </div>
                 <button
-                  className="p-3 text-slate-500 hover:bg-slate-100 rounded-full transition-colors"
+                  className="rounded-full p-3 text-slate-500 transition-colors hover:bg-slate-100"
                   onClick={() => setIsMobileMenuOpen(false)}
                   aria-label="Close menu"
                 >
@@ -280,12 +220,7 @@ export function Navbar() {
               </div>
 
               <nav className="flex flex-col gap-1">
-                <Link
-                  href="/"
-                  scroll={true}
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className="rounded-lg px-4 py-4 text-base font-medium text-slate-800 transition-colors hover:bg-slate-50 active:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
-                >
+                <Link href="/" scroll={true} onClick={() => setIsMobileMenuOpen(false)} className="rounded-lg px-4 py-4 text-base font-medium text-slate-800 transition-colors hover:bg-slate-50 active:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500">
                   Home
                 </Link>
 
@@ -295,32 +230,15 @@ export function Navbar() {
                   className="flex items-center justify-between rounded-lg px-4 py-4 text-left text-base font-medium text-slate-800 transition-colors hover:bg-slate-50 active:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
                 >
                   Properties
-                  <ChevronDown
-                    className={cn(
-                      "h-4 w-4 transition-transform",
-                      isMobilePropertiesOpen ? "rotate-180" : "rotate-0"
-                    )}
-                  />
+                  <ChevronDown className={cn("h-4 w-4 transition-transform", isMobilePropertiesOpen ? "rotate-180" : "rotate-0")} />
                 </button>
 
                 <AnimatePresence initial={false}>
                   {isMobilePropertiesOpen && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: "auto" }}
-                      exit={{ opacity: 0, height: 0 }}
-                      transition={{ duration: 0.2 }}
-                      className="overflow-hidden"
-                    >
-                      <div className="ml-3 space-y-1 border-l-2 border-slate-200 pl-4 bg-white">
+                    <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden">
+                      <div className="ml-3 space-y-1 border-l-2 border-slate-200 bg-white pl-4">
                         {[...propertyMenuItems, ...propertyListingItems].map((item) => (
-                          <Link
-                            key={item.name}
-                            href={item.href}
-                            scroll={true}
-                            onClick={() => setIsMobileMenuOpen(false)}
-                            className="flex items-center justify-between rounded-md px-3 py-3 text-sm font-medium text-slate-900 bg-white hover:bg-slate-50 active:bg-slate-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
-                          >
+                          <Link key={item.name} href={item.href} scroll={true} onClick={() => setIsMobileMenuOpen(false)} className="flex items-center justify-between rounded-md bg-white px-3 py-3 text-sm font-medium text-slate-900 transition-colors hover:bg-slate-50 active:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500">
                             {item.name}
                             <ChevronRight className="h-3.5 w-3.5 text-slate-400" />
                           </Link>
@@ -330,36 +248,22 @@ export function Navbar() {
                   )}
                 </AnimatePresence>
 
-                <Link
-                  href="/about"
-                  scroll={true}
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className="rounded-lg px-4 py-4 text-base font-medium text-slate-800 transition-colors hover:bg-slate-50 active:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
-                >
-                  About
-                </Link>
-                <Link
-                  href="/contact"
-                  scroll={true}
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className="rounded-lg px-4 py-4 text-base font-medium text-slate-800 transition-colors hover:bg-slate-50 active:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
-                >
-                  Contact
-                </Link>
+                {desktopNavLinks.slice(1).map((link) => (
+                  <Link key={link.name} href={link.href} scroll={true} onClick={() => setIsMobileMenuOpen(false)} className="rounded-lg px-4 py-4 text-base font-medium text-slate-800 transition-colors hover:bg-slate-50 active:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500">
+                    {link.name}
+                  </Link>
+                ))}
               </nav>
 
-              <div className="mt-auto flex flex-col gap-3 pt-4">
-                <Button className="h-14 w-full rounded-full text-base font-semibold shadow-lg" asChild>
-                  <a
-                    href={WHATSAPP_CTA}
-                    target="_blank"
-                    rel="noreferrer"
-                    onClick={() => setIsMobileMenuOpen(false)}
-                  >
-                    Talk on WhatsApp
-                  </a>
-                </Button>
-              </div>
+              {whatsappCta && (
+                <div className="mt-auto flex flex-col gap-3 pt-4">
+                  <Button className="h-14 w-full rounded-full text-base font-semibold shadow-lg" asChild>
+                    <a href={whatsappCta} target="_blank" rel="noreferrer" onClick={() => setIsMobileMenuOpen(false)}>
+                      Talk on WhatsApp
+                    </a>
+                  </Button>
+                </div>
+              )}
             </div>
           </motion.div>
         )}

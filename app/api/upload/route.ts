@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
-import { v2 as cloudinary } from "cloudinary";
+import { v2 as cloudinary, type UploadApiResponse } from "cloudinary";
+import { requireAdminApi } from "@/lib/api-security";
+
+const cloudinaryFolder = "real-estate";
+const allowedImageTypes = ["image/jpeg", "image/png", "image/webp"];
+const maxImageSize = 5 * 1024 * 1024;
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -11,61 +14,74 @@ cloudinary.config({
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const admin = await requireAdminApi();
+    if (admin.response) return admin.response;
 
-    if (!session) {
-      return new NextResponse("Unauthorized", { status: 401 });
+    if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
+      return NextResponse.json({ error: "Image upload is not configured." }, { status: 503 });
     }
 
     const formData = await req.formData();
     const file = formData.get("file") as File;
 
     if (!file) {
-      return new NextResponse("No file provided", { status: 400 });
+      return NextResponse.json({ error: "No file provided" }, { status: 400 });
     }
 
-    // Validation: Max 5MB
-    if (file.size > 5 * 1024 * 1024) {
-      return new NextResponse("File too large (Max 5MB)", { status: 400 });
+    if (file.size > maxImageSize) {
+      return NextResponse.json({ error: "File too large. Maximum upload size is 5MB." }, { status: 400 });
     }
 
-    // Validation: Format
-    const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
-    if (!allowedTypes.includes(file.type)) {
-      return new NextResponse("Invalid file type (JPG, PNG, WEBP only)", { status: 400 });
+    if (!allowedImageTypes.includes(file.type)) {
+      return NextResponse.json({ error: "Invalid file type. JPG, PNG, and WEBP are allowed." }, { status: 400 });
     }
 
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
-    const result = await new Promise((resolve, reject) => {
+    const result = await new Promise<UploadApiResponse>((resolve, reject) => {
       cloudinary.uploader.upload_stream(
         {
           resource_type: "image",
-          folder: "real-estate",
+          folder: cloudinaryFolder,
         },
         (error, result) => {
           if (error) reject(error);
-          else resolve(result);
+          else if (result) resolve(result);
+          else reject(new Error("Cloudinary did not return an upload result."));
         }
       ).end(buffer);
     });
 
-    return NextResponse.json(result);
+    return NextResponse.json({
+      url: result.secure_url,
+      secure_url: result.secure_url,
+      width: result.width,
+      height: result.height,
+      bytes: result.bytes,
+      format: result.format,
+    });
   } catch (error) {
     console.error("[UPLOAD_ERROR]", error);
-    return new NextResponse("Internal Server Error", { status: 500 });
+    return NextResponse.json({ error: "Unable to upload image." }, { status: 500 });
   }
 }
 
 // GET route for signature generation (if user prefers client-side upload)
 export async function GET() {
   try {
+    const admin = await requireAdminApi();
+    if (admin.response) return admin.response;
+
+    if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
+      return NextResponse.json({ error: "Image upload is not configured." }, { status: 503 });
+    }
+
     const timestamp = Math.round(new Date().getTime() / 1000);
     const signature = cloudinary.utils.api_sign_request(
       {
         timestamp: timestamp,
-        folder: "real-estate",
+        folder: cloudinaryFolder,
       },
       process.env.CLOUDINARY_API_SECRET!
     );
@@ -77,6 +93,6 @@ export async function GET() {
       apiKey: process.env.CLOUDINARY_API_KEY,
     });
   } catch {
-    return new NextResponse("Internal Server Error", { status: 500 });
+    return NextResponse.json({ error: "Unable to create upload signature." }, { status: 500 });
   }
 }

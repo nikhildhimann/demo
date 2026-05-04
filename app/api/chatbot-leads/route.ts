@@ -1,7 +1,10 @@
-import { NextRequest, NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
+import { NextRequest, NextResponse } from "next/server"; // IDE trigger
 import { chatbotLeadSchema } from "@/lib/validators";
 import { rateLimit } from "@/lib/rate-limit";
+import { hasSpamTrap } from "@/lib/api-security";
+import { getNotificationRecipient, sendLeadNotification } from "@/lib/email";
+import { getSiteSettings } from "@/lib/settings";
+import { upsertLeadFromPublicForm } from "@/lib/leads";
 
 type LeadData = {
   name: string;
@@ -12,6 +15,7 @@ type LeadData = {
   propertyType: string;
   message?: string;
   source?: string;
+  priority?: string;
 };
 
 function normalizeText(value: string) {
@@ -28,6 +32,7 @@ function normalizeLeadInput(data: LeadData) {
     propertyType: normalizeText(data.propertyType),
     message: data.message ? normalizeText(data.message) : "",
     source: data.source ? normalizeText(data.source) : "chatbot",
+    priority: data.priority,
   };
 }
 
@@ -46,23 +51,41 @@ export async function POST(req: NextRequest) {
     }
 
     const json = await req.json();
+    if (hasSpamTrap(json)) {
+      return NextResponse.json({ success: true });
+    }
+
     const parsed = chatbotLeadSchema.parse(json);
     const normalized = normalizeLeadInput(parsed);
 
     const leadMessage = normalized.message ||
       `Chatbot Lead\nType: ${normalized.interestType}\nLocation: ${normalized.location}\nBudget: ${normalized.budget}\nProperty Type: ${normalized.propertyType}`;
 
-    const enquiry = await prisma.enquiry.create({
-      data: {
-        name: normalized.name,
-        phone: normalized.phone,
-        message: leadMessage,
-        source: normalized.source,
-        interestType: normalized.interestType,
-        interestLocation: normalized.location,
-        interestBudget: normalized.budget,
-        interestPropertyType: normalized.propertyType,
-      } as any,
+    const { enquiry } = await upsertLeadFromPublicForm({
+      name: normalized.name,
+      phone: normalized.phone,
+      message: leadMessage,
+      source: "chatbot",
+      budget: normalized.budget,
+      preferredLocation: normalized.location,
+      preferredType: normalized.propertyType,
+      purpose: normalized.interestType,
+      priority: normalized.priority,
+    }) as any;
+
+    const settings = await getSiteSettings();
+
+    await sendLeadNotification(getNotificationRecipient(settings.email), {
+      leadName: enquiry.name,
+      phone: enquiry.phone,
+      email: enquiry.email,
+      message: enquiry.message,
+      propertyTitle: "Chatbot enquiry",
+      budget: enquiry.budget,
+      location: enquiry.preferredLocation,
+      source: enquiry.source,
+      submittedAt: enquiry.createdAt,
+      adminUrl: `${settings.siteUrl}/admin/enquiries`,
     });
 
     return NextResponse.json({

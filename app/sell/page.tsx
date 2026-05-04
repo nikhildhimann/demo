@@ -1,16 +1,24 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { siteConfig } from "@/data/siteConfig";
+import { getSiteSettings } from "@/lib/settings";
+import { SellerForm } from "@/components/property/SellerForm";
 
-export const metadata: Metadata = {
-  title: `Sell Property | ${siteConfig.brandName}`,
-  description: `List your property with ${siteConfig.brandName} and get expert support to sell faster.`,
-};
+export const dynamic = "force-dynamic";
 
-export default function SellPropertyPage() {
-  const whatsappHref =
-    "https://wa.me/919464402648?text=Hi%20I%20want%20to%20sell%20my%20property.%20Please%20guide%20me.";
+export async function generateMetadata(): Promise<Metadata> {
+  const settings = await getSiteSettings();
+  return {
+    title: `Sell Property | ${settings.businessName}`,
+    description: `List your property with ${settings.businessName} and get expert support to sell faster.`,
+  };
+}
+
+export default async function SellPropertyPage() {
+  const settings = await getSiteSettings();
+  const whatsappHref = settings.whatsappNumber
+    ? `https://wa.me/${settings.whatsappNumber}?text=${encodeURIComponent("Hi, I want to sell my property. Please guide me.")}`
+    : "";
 
   return (
     <div className="min-h-screen bg-slate-50 pt-28 pb-16">
@@ -23,15 +31,8 @@ export default function SellPropertyPage() {
             and connect you with serious buyers.
           </p>
 
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <Button size="lg" className="rounded-full px-8" asChild>
-              <Link href="/contact">List Your Property</Link>
-            </Button>
-            <Button size="lg" variant="outline" className="rounded-full px-8" asChild>
-              <a href={whatsappHref} target="_blank" rel="noreferrer">
-                Talk on WhatsApp
-              </a>
-            </Button>
+          <div className="mt-10">
+            <SellerForm />
           </div>
         </div>
       </div>

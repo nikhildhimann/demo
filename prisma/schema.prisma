@@ -8,7 +8,6 @@ datasource db {
 
 enum UserRole {
   ADMIN
-  USER
 }
 
 enum PropertyStatus {
@@ -20,15 +19,35 @@ enum PropertyStatus {
 
 enum PropertyType {
   APARTMENT
-  VILLA
   HOUSE
+  VILLA
+  TOWNHOUSE
   COMMERCIAL
+  LAND
+  PLOT
 }
 
-enum EnquiryStatus {
+enum PropertyPurpose {
+  BUY
+  RENT
+  SELL
+}
+
+enum LeadStatus {
   NEW
   CONTACTED
-  CLOSED
+  INTERESTED
+  SITE_VISIT
+  NEGOTIATION
+  CONVERTED
+  LOST
+  SPAM
+}
+
+enum LeadPriority {
+  HOT
+  WARM
+  COLD
 }
 
 model User {
@@ -36,7 +55,7 @@ model User {
   email         String    @unique
   password      String?
   name          String?
-  role          UserRole  @default(USER)
+  role          UserRole  @default(ADMIN)
   image         String?
   phone         String?
   createdAt     DateTime  @default(now())
@@ -54,14 +73,18 @@ model Property {
   price       Float
   status      PropertyStatus
   type        PropertyType
+  purpose     PropertyPurpose @default(BUY)
   bedrooms    Int
   bathrooms   Int
   area        Float
   size        Float?
+  location    String?
+  suburb      String?
   address     String
   city        String
   state       String
   zip         String
+  zipCode     String?
   country     String
   amenities   String[]
   featured    Boolean        @default(false)
@@ -75,12 +98,20 @@ model Property {
   agentPhone  String?
   agentEmail  String?
   agentName   String?
+
+  @@index([status])
+  @@index([type])
+  @@index([purpose])
+  @@index([city])
+  @@index([location])
+  @@index([featured])
+  @@index([deletedAt])
 }
 
 model Image {
   id         String   @id @default(cuid())
   url        String
-  publicId   String
+  publicId   String?
   propertyId String
   property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
   order      Int      @default(0)
@@ -94,16 +125,53 @@ model Enquiry {
   propertyId           String?
   property             Property?     @relation(fields: [propertyId], references: [id], onDelete: SetNull)
   message              String?
-  status               EnquiryStatus @default(NEW)
+  status               LeadStatus    @default(NEW)
+  priority             LeadPriority  @default(WARM)
   source               String        @default("Website Contact")
+  budget               String?
+  preferredLocation    String?
+  preferredType        String?
   interestType         String?
   interestLocation     String?
   interestBudget       String?
   interestPropertyType String?
   notes                String?
+  followUpDate         DateTime?
   preferredContactTime String?
   createdAt            DateTime      @default(now())
   updatedAt            DateTime      @updatedAt
+
+  @@index([status])
+  @@index([priority])
+  @@index([source])
+  @@index([propertyId])
+  @@index([createdAt])
+  @@index([followUpDate])
+}
+
+model SiteSettings {
+  id                    String   @id @default(cuid())
+  businessName          String
+  tagline               String?
+  phone                 String?
+  whatsappNumber        String?
+  email                 String?
+  address               String?
+  city                  String?
+  state                 String?
+  country               String?
+  logoUrl               String?
+  faviconUrl            String?
+  primaryDomain         String?
+  facebookUrl           String?
+  twitterUrl            String?
+  instagramUrl          String?
+  linkedinUrl           String?
+  youtubeUrl            String?
+  defaultSeoTitle       String?
+  defaultSeoDescription String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
 }
 
 // NextAuth Models (for Prisma Adapter)

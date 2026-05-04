@@ -21,7 +21,7 @@ export const authOptions: NextAuthOptions = {
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
-          throw new Error("Invalid credentials");
+          throw new Error("Invalid admin email or password");
         }
 
         const user = await prisma.user.findUnique({
@@ -31,7 +31,11 @@ export const authOptions: NextAuthOptions = {
         });
 
         if (!user || !user.password) {
-          throw new Error("User not found");
+          throw new Error("Invalid admin email or password");
+        }
+
+        if (user.role !== "ADMIN") {
+          throw new Error("Admin access only");
         }
 
         const isCorrectPassword = await bcrypt.compare(
@@ -40,7 +44,7 @@ export const authOptions: NextAuthOptions = {
         );
 
         if (!isCorrectPassword) {
-          throw new Error("Invalid password");
+          throw new Error("Invalid admin email or password");
         }
 
         return user;
@@ -50,15 +54,15 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        token.role = (user as any).role;
         token.id = user.id;
+        token.role = user.role;
       }
       return token;
     },
     async session({ session, token }) {
       if (token && session.user) {
-        (session.user as any).role = token.role;
-        (session.user as any).id = token.id;
+        session.user.role = token.role;
+        session.user.id = token.id;
       }
       return session;
     },

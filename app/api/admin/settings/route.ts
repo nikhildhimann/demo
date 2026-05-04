@@ -1,64 +1,57 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import { z } from "zod";
+import { revalidatePath } from "next/cache";
 import { authOptions } from "@/lib/auth";
-import { siteConfig } from "@/data/siteConfig";
-
-const schema = z.object({
-  brandName: z.string().min(2),
-  phone: z.string().min(7),
-  whatsapp: z.string().min(7),
-  email: z.string().email(),
-  address: z.string().min(5),
-  heroTitle: z.string().min(5),
-  heroSubtitle: z.string().min(10),
-  facebook: z.string().url(),
-  twitter: z.string().url(),
-  instagram: z.string().url(),
-  linkedin: z.string().url(),
-});
-
-type SettingsData = z.infer<typeof schema>;
-
-let inMemorySettings: SettingsData = {
-  brandName: siteConfig.brandName,
-  phone: siteConfig.phone,
-  whatsapp: siteConfig.whatsapp,
-  email: siteConfig.email,
-  address: siteConfig.address,
-  heroTitle: siteConfig.heroTitle,
-  heroSubtitle: siteConfig.heroSubtitle,
-  facebook: siteConfig.socialLinks.facebook,
-  twitter: siteConfig.socialLinks.twitter,
-  instagram: siteConfig.socialLinks.instagram,
-  linkedin: siteConfig.socialLinks.linkedin,
-};
+import prisma from "@/lib/prisma";
+import { getSiteSettings, settingsInputSchema } from "@/lib/settings";
 
 async function assertAdmin() {
   const session = await getServerSession(authOptions);
-  if (!session || (session.user as any).role !== "ADMIN") return null;
+  if (!session || session.user.role !== "ADMIN") return null;
   return session;
 }
 
 export async function GET() {
   const session = await assertAdmin();
-  if (!session) return new NextResponse("Unauthorized", { status: 401 });
-  return NextResponse.json({ settings: inMemorySettings });
+  if (!session) return NextResponse.json({ error: "Admin access required" }, { status: 401 });
+
+  const settings = await getSiteSettings();
+  return NextResponse.json({ settings });
 }
 
 export async function PATCH(req: NextRequest) {
   const session = await assertAdmin();
-  if (!session) return new NextResponse("Unauthorized", { status: 401 });
+  if (!session) return NextResponse.json({ error: "Admin access required" }, { status: 401 });
 
   try {
     const body = await req.json();
-    const parsed = schema.parse(body);
-    inMemorySettings = parsed;
-    return NextResponse.json({ ok: true, settings: inMemorySettings });
+    const parsed = settingsInputSchema.parse(body);
+
+    const existing = await prisma.siteSettings.findFirst({
+      orderBy: { createdAt: "asc" },
+      select: { id: true },
+    });
+
+    const settings = existing
+      ? await prisma.siteSettings.update({
+          where: { id: existing.id },
+          data: parsed,
+        })
+      : await prisma.siteSettings.create({
+          data: {
+            id: "default",
+            ...parsed,
+          },
+        });
+
+    revalidatePath("/", "layout");
+
+    return NextResponse.json({ ok: true, settings });
   } catch (error: any) {
     if (error.name === "ZodError") {
       return NextResponse.json({ error: "Validation failed", issues: error.issues }, { status: 400 });
     }
+    console.error("[ADMIN_SETTINGS_PATCH]", error);
     return NextResponse.json({ error: "Unable to save settings" }, { status: 500 });
   }
 }

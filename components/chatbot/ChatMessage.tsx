@@ -1,7 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
 import { formatPrice } from "@/lib/utils";
-import { siteConfig } from "@/data/siteConfig";
 import { Button } from "@/components/ui/button";
 import { QuickReply, type QuickReplyOption } from "@/components/chatbot/QuickReply";
 
@@ -27,10 +26,11 @@ type ChatMessageProps = {
   message: ChatMessageData;
   isLast?: boolean;
   disabled?: boolean;
+  currency?: string;
   onQuickReply: (value: string, label: string) => void;
 };
 
-export function ChatMessage({ message, isLast = false, disabled = false, onQuickReply }: ChatMessageProps) {
+export function ChatMessage({ message, isLast = false, disabled = false, currency = "USD", onQuickReply }: ChatMessageProps) {
   const isUser = message.role === "user";
 
   return (
@@ -60,6 +60,7 @@ export function ChatMessage({ message, isLast = false, disabled = false, onQuick
                         fill
                         sizes="80px"
                         className="object-cover"
+                        unoptimized
                       />
                     ) : (
                       <div className="h-full w-full bg-slate-100" />
@@ -67,7 +68,7 @@ export function ChatMessage({ message, isLast = false, disabled = false, onQuick
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-semibold text-slate-900">{property.title}</p>
-                    <p className="text-xs font-medium text-emerald-700">{formatPrice(property.price, siteConfig.currency)}</p>
+                    <p className="text-xs font-medium text-emerald-700">{formatPrice(property.price, currency)}</p>
                     <p className="line-clamp-1 text-xs text-slate-600">{property.city || property.address}</p>
                     <Button size="sm" className="mt-2 h-7 rounded-md bg-slate-900 px-2 text-white hover:bg-slate-800" asChild>
                       <Link href={`/properties/${property.slug}`}>View Details</Link>

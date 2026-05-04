@@ -10,31 +10,47 @@ import { Textarea } from "@/components/ui/textarea";
 import { Loader2, Save } from "lucide-react";
 
 type SettingsData = {
-  brandName: string;
+  businessName: string;
+  tagline: string;
   phone: string;
-  whatsapp: string;
+  whatsappNumber: string;
   email: string;
   address: string;
-  heroTitle: string;
-  heroSubtitle: string;
-  facebook: string;
-  twitter: string;
-  instagram: string;
-  linkedin: string;
+  city: string;
+  state: string;
+  country: string;
+  logoUrl: string;
+  faviconUrl: string;
+  primaryDomain: string;
+  facebookUrl: string;
+  twitterUrl: string;
+  instagramUrl: string;
+  linkedinUrl: string;
+  youtubeUrl: string;
+  defaultSeoTitle: string;
+  defaultSeoDescription: string;
 };
 
 const initialState: SettingsData = {
-  brandName: "",
+  businessName: "",
+  tagline: "",
   phone: "",
-  whatsapp: "",
+  whatsappNumber: "",
   email: "",
   address: "",
-  heroTitle: "",
-  heroSubtitle: "",
-  facebook: "",
-  twitter: "",
-  instagram: "",
-  linkedin: "",
+  city: "",
+  state: "",
+  country: "",
+  logoUrl: "",
+  faviconUrl: "",
+  primaryDomain: "",
+  facebookUrl: "",
+  twitterUrl: "",
+  instagramUrl: "",
+  linkedinUrl: "",
+  youtubeUrl: "",
+  defaultSeoTitle: "",
+  defaultSeoDescription: "",
 };
 
 export function SettingsClient() {
@@ -48,7 +64,7 @@ export function SettingsClient() {
         const response = await fetch("/api/admin/settings");
         if (!response.ok) throw new Error("Unable to load settings");
         const data = await response.json();
-        setValues(data.settings);
+        setValues((prev) => ({ ...prev, ...data.settings }));
       } catch (error: any) {
         toast.error(error.message || "Unable to load settings");
       } finally {
@@ -72,7 +88,8 @@ export function SettingsClient() {
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || "Unable to save settings");
-      toast.success("Settings updated successfully");
+      setValues((prev) => ({ ...prev, ...data.settings }));
+      toast.success("Settings saved permanently");
     } catch (error: any) {
       toast.error(error.message || "Unable to save settings");
     } finally {
@@ -84,7 +101,7 @@ export function SettingsClient() {
     <div className="min-h-screen space-y-8 p-6 md:p-8">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Website Settings</h1>
-        <p className="text-muted-foreground">Update key branding and contact details for your website.</p>
+        <p className="text-muted-foreground">Update branding, contact details, social links, and SEO defaults.</p>
       </div>
 
       {loading ? (
@@ -92,31 +109,45 @@ export function SettingsClient() {
       ) : (
         <form onSubmit={onSubmit} className="space-y-6">
           <Card>
-            <CardHeader><CardTitle>Brand & Contact</CardTitle></CardHeader>
-            <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <div className="space-y-2"><Label>Brand Name</Label><Input value={values.brandName} onChange={(e) => setValue("brandName", e.target.value)} /></div>
-              <div className="space-y-2"><Label>Phone</Label><Input value={values.phone} onChange={(e) => setValue("phone", e.target.value)} /></div>
-              <div className="space-y-2"><Label>WhatsApp</Label><Input value={values.whatsapp} onChange={(e) => setValue("whatsapp", e.target.value)} /></div>
-              <div className="space-y-2"><Label>Email</Label><Input value={values.email} onChange={(e) => setValue("email", e.target.value)} /></div>
-              <div className="space-y-2 md:col-span-2"><Label>Address</Label><Input value={values.address} onChange={(e) => setValue("address", e.target.value)} /></div>
+            <CardHeader><CardTitle>Brand</CardTitle></CardHeader>
+            <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-3">
+              <div className="space-y-2"><Label>Business Name</Label><Input value={values.businessName} onChange={(e) => setValue("businessName", e.target.value)} required /></div>
+              <div className="space-y-2"><Label>Primary Domain</Label><Input value={values.primaryDomain} onChange={(e) => setValue("primaryDomain", e.target.value)} placeholder="https://example.com" /></div>
+              <div className="space-y-2"><Label>Tagline</Label><Input value={values.tagline} onChange={(e) => setValue("tagline", e.target.value)} /></div>
+              <div className="space-y-2"><Label>Logo URL</Label><Input value={values.logoUrl} onChange={(e) => setValue("logoUrl", e.target.value)} placeholder="https://..." /></div>
+              <div className="space-y-2"><Label>Favicon URL</Label><Input value={values.faviconUrl} onChange={(e) => setValue("faviconUrl", e.target.value)} placeholder="https://..." /></div>
             </CardContent>
           </Card>
 
           <Card>
-            <CardHeader><CardTitle>Homepage Content</CardTitle></CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2"><Label>Hero Title</Label><Input value={values.heroTitle} onChange={(e) => setValue("heroTitle", e.target.value)} /></div>
-              <div className="space-y-2"><Label>Hero Subtitle</Label><Textarea value={values.heroSubtitle} onChange={(e) => setValue("heroSubtitle", e.target.value)} /></div>
+            <CardHeader><CardTitle>Contact</CardTitle></CardHeader>
+            <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-3">
+              <div className="space-y-2"><Label>Phone</Label><Input value={values.phone} onChange={(e) => setValue("phone", e.target.value)} /></div>
+              <div className="space-y-2"><Label>WhatsApp Number</Label><Input value={values.whatsappNumber} onChange={(e) => setValue("whatsappNumber", e.target.value)} placeholder="Country code + number" /></div>
+              <div className="space-y-2"><Label>Email</Label><Input type="email" value={values.email} onChange={(e) => setValue("email", e.target.value)} /></div>
+              <div className="space-y-2"><Label>Country</Label><Input value={values.country} onChange={(e) => setValue("country", e.target.value)} /></div>
+              <div className="space-y-2"><Label>City</Label><Input value={values.city} onChange={(e) => setValue("city", e.target.value)} /></div>
+              <div className="space-y-2"><Label>State</Label><Input value={values.state} onChange={(e) => setValue("state", e.target.value)} /></div>
+              <div className="space-y-2 md:col-span-3"><Label>Address</Label><Input value={values.address} onChange={(e) => setValue("address", e.target.value)} /></div>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader><CardTitle>Social Links</CardTitle></CardHeader>
-            <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <div className="space-y-2"><Label>Facebook</Label><Input value={values.facebook} onChange={(e) => setValue("facebook", e.target.value)} /></div>
-              <div className="space-y-2"><Label>Twitter</Label><Input value={values.twitter} onChange={(e) => setValue("twitter", e.target.value)} /></div>
-              <div className="space-y-2"><Label>Instagram</Label><Input value={values.instagram} onChange={(e) => setValue("instagram", e.target.value)} /></div>
-              <div className="space-y-2"><Label>LinkedIn</Label><Input value={values.linkedin} onChange={(e) => setValue("linkedin", e.target.value)} /></div>
+            <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-3">
+              <div className="space-y-2"><Label>Facebook</Label><Input value={values.facebookUrl} onChange={(e) => setValue("facebookUrl", e.target.value)} /></div>
+              <div className="space-y-2"><Label>Twitter / X</Label><Input value={values.twitterUrl} onChange={(e) => setValue("twitterUrl", e.target.value)} /></div>
+              <div className="space-y-2"><Label>Instagram</Label><Input value={values.instagramUrl} onChange={(e) => setValue("instagramUrl", e.target.value)} /></div>
+              <div className="space-y-2"><Label>LinkedIn</Label><Input value={values.linkedinUrl} onChange={(e) => setValue("linkedinUrl", e.target.value)} /></div>
+              <div className="space-y-2 md:col-span-2"><Label>YouTube</Label><Input value={values.youtubeUrl} onChange={(e) => setValue("youtubeUrl", e.target.value)} /></div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader><CardTitle>SEO Defaults</CardTitle></CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2"><Label>Default SEO Title</Label><Input value={values.defaultSeoTitle} onChange={(e) => setValue("defaultSeoTitle", e.target.value)} /></div>
+              <div className="space-y-2"><Label>Default SEO Description</Label><Textarea value={values.defaultSeoDescription} onChange={(e) => setValue("defaultSeoDescription", e.target.value)} /></div>
             </CardContent>
           </Card>
 

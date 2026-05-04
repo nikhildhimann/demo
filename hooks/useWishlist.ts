@@ -17,13 +17,24 @@ export function useWishlist() {
 
   useEffect(() => {
     // Load from local storage
-    const saved = localStorage.getItem("elite_wishlist");
-    if (saved) {
-      try {
-        setWishlist(JSON.parse(saved));
-      } catch {}
-    }
+    const loadWishlist = () => {
+      const saved = localStorage.getItem("elite_wishlist");
+      if (saved) {
+        try {
+          setWishlist(JSON.parse(saved));
+        } catch {}
+      }
+    };
+    
+    loadWishlist();
     setIsLoaded(true);
+
+    const handleWishlistUpdate = () => {
+      setTimeout(() => loadWishlist(), 0);
+    };
+
+    window.addEventListener("wishlist_updated", handleWishlistUpdate);
+    return () => window.removeEventListener("wishlist_updated", handleWishlistUpdate);
   }, []);
 
   const toggleWishlist = (property: SavedProperty) => {
@@ -33,6 +44,7 @@ export function useWishlist() {
       const exists = current.some((p) => p.id === property.id);
       const next = exists ? current.filter((p) => p.id !== property.id) : [...current, property];
       localStorage.setItem("elite_wishlist", JSON.stringify(next));
+      window.dispatchEvent(new Event("wishlist_updated"));
       return next;
     });
   };

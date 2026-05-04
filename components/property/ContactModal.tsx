@@ -13,20 +13,23 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Loader2, MessageCircle } from "lucide-react";
 import Image from "next/image";
 import { toast } from "sonner";
-import { siteConfig } from "@/data/siteConfig";
+import type { PublicSiteSettings } from "@/types/settings";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const enquirySchema = z.object({
   name: z.string().min(2, "Name is required"),
   email: z.string().email("Invalid email address").optional().or(z.literal("")),
-  phone: z.string().min(10, "Valid phone number is required"),
+  phone: z.string().min(7, "Valid phone number is required"),
   message: z.string().min(10, "Message must be at least 10 characters"),
-  interested: z.boolean().optional(),
+  budget: z.string().optional(),
+  preferredLocation: z.string().optional(),
+  purpose: z.enum(["BUY", "RENT", "SELL"]),
+  preferredType: z.string().optional(),
 });
 
 type EnquiryFormValues = z.infer<typeof enquirySchema>;
@@ -40,14 +43,51 @@ interface ContactModalProps {
     image: string;
     address: string;
     price: number;
+    purpose?: string;
+    type?: string;
+    location?: string | null;
   };
+  settings: PublicSiteSettings;
+  source?: "property_detail" | "book_viewing" | "price_guide" | "property_card" | "contact_page";
+  title?: string;
 }
 
-export function ContactModal({ isOpen, onClose, property }: ContactModalProps) {
+const sourceCopy = {
+  property_detail: {
+    title: "Enquire About This Property",
+    description: "Share your details and our team will guide you through pricing, availability, and next steps.",
+    message: "Please provide more details about this property.",
+  },
+  book_viewing: {
+    title: "Book a Viewing",
+    description: "Tell us when you would like to view this property and we will coordinate the visit.",
+    message: "I would like to book a viewing for this property. Please share available time slots.",
+  },
+  price_guide: {
+    title: "Request Price Guide",
+    description: "Get current pricing, payment details, and comparable property guidance.",
+    message: "Please send me the latest price guide and buying/rental details for this property.",
+  },
+  property_card: {
+    title: "Enquire Now",
+    description: "Send your requirement and our team will respond with the right next step.",
+    message: "Please provide more details about this property.",
+  },
+  contact_page: {
+    title: "Send Your Requirement",
+    description: "Share your requirement and our team will contact you shortly.",
+    message: "Please help me with my real estate requirement.",
+  },
+};
+
+export function ContactModal({ isOpen, onClose, property, settings, source = "property_detail", title }: ContactModalProps) {
   const [isLoading, setIsLoading] = useState(false);
+  const [successWhatsAppUrl, setSuccessWhatsAppUrl] = useState("");
+  const [selectedPurpose, setSelectedPurpose] = useState((property.purpose as "BUY" | "RENT" | "SELL") || "BUY");
+  const copy = sourceCopy[source] || sourceCopy.property_detail;
   const formattedPrice = new Intl.NumberFormat("en-US", {
     style: "currency",
-    currency: siteConfig.currency,
+    currency: settings.currency,
     currencyDisplay: "narrowSymbol",
     maximumFractionDigits: 0,
   }).format(property.price);
@@ -57,11 +97,15 @@ export function ContactModal({ isOpen, onClose, property }: ContactModalProps) {
     handleSubmit,
     formState: { errors },
     reset,
+    setValue,
   } = useForm<EnquiryFormValues>({
     resolver: zodResolver(enquirySchema),
     defaultValues: {
-      interested: true,
-      message: `I'm interested in "${property.title}" located at ${property.address}. Please provide more details.`,
+      purpose: (property.purpose as "BUY" | "RENT" | "SELL") || "BUY",
+      preferredType: property.type || "",
+      preferredLocation: property.location || "",
+      budget: "",
+      message: `I'm interested in "${property.title}" located at ${property.address}. ${copy.message}`,
     },
   });
 
@@ -74,19 +118,19 @@ export function ContactModal({ isOpen, onClose, property }: ContactModalProps) {
         body: JSON.stringify({
           ...data,
           propertyId: property.id,
+          source,
         }),
       });
 
       if (response.ok) {
-        toast.success("Thanks! Our agent will contact you within 10 minutes.");
+        const result = await response.json().catch(() => null);
+        setSuccessWhatsAppUrl(result?.whatsappUrl || "");
+        toast.success(result?.duplicateUpdated ? "Thanks! We updated your existing enquiry." : "Thanks! Our agent will contact you within 10 minutes.");
         reset();
-        
-        // Auto-close after 3 seconds as requested
-        setTimeout(() => {
-          onClose();
-        }, 3000);
+        setSelectedPurpose((property.purpose as "BUY" | "RENT" | "SELL") || "BUY");
       } else {
-        toast.error("Something went wrong. Please try again.");
+        const result = await response.json().catch(() => null);
+        toast.error(result?.error || "Something went wrong. Please try again.");
       }
     } catch (error) {
       console.error(error);
@@ -99,16 +143,17 @@ export function ContactModal({ isOpen, onClose, property }: ContactModalProps) {
   const handleWhatsAppEnquiry = () => {
     const whatsappMessage = `Hi! I'm interested in this property:
 
-🏠 *${property.title}*
-📍 ${property.address}
-💰 ${formattedPrice}
+${property.title}
+${property.address}
+${formattedPrice}
 
 I would like to know more details about this property. Please contact me soon.
 
 Thank you!`;
     
+    if (!settings.whatsappNumber) return;
     const encodedMessage = encodeURIComponent(whatsappMessage);
-    const whatsappUrl = `https://wa.me/919464402648?text=${encodedMessage}`;
+    const whatsappUrl = `https://wa.me/${settings.whatsappNumber}?text=${encodedMessage}`;
     
     window.open(whatsappUrl, '_blank');
   };
@@ -117,9 +162,9 @@ Thank you!`;
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="bg-white text-slate-950 sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Enquire About This Property</DialogTitle>
+          <DialogTitle>{title || copy.title}</DialogTitle>
           <DialogDescription>
-            Fill out the form below and our agent will contact you shortly.
+            {copy.description}
           </DialogDescription>
         </DialogHeader>
 
@@ -130,6 +175,7 @@ Thank you!`;
               alt={property.title}
               fill
               className="object-cover"
+              unoptimized
             />
           </div>
           <div>
@@ -197,23 +243,58 @@ Thank you!`;
             )}
           </div>
 
-          <div className="flex items-center space-x-2">
-            <Checkbox id="interested" defaultChecked {...register("interested")} />
-            <label
-              htmlFor="interested"
-              className="text-xs font-medium leading-none text-slate-700 peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-            >
-              I&apos;m interested in this property
-            </label>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label>Purpose</Label>
+              <Select value={selectedPurpose} onValueChange={(value) => {
+                const purpose = value as "BUY" | "RENT" | "SELL";
+                setSelectedPurpose(purpose);
+                setValue("purpose", purpose);
+              }}>
+                <SelectTrigger className="bg-white"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="BUY">Buy</SelectItem>
+                  <SelectItem value="RENT">Rent</SelectItem>
+                  <SelectItem value="SELL">Sell</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="preferredType">Type</Label>
+              <Input id="preferredType" placeholder="Apartment, Villa..." {...register("preferredType")} disabled={isLoading} />
+            </div>
           </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label htmlFor="budget">Budget</Label>
+              <Input id="budget" placeholder="Optional" {...register("budget")} disabled={isLoading} />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="preferredLocation">Preferred Location</Label>
+              <Input id="preferredLocation" placeholder="Area / city" {...register("preferredLocation")} disabled={isLoading} />
+            </div>
+          </div>
+
+          {successWhatsAppUrl && (
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
+              Enquiry saved. You can also continue on WhatsApp for a faster response.
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-3">
             <Button 
               type="button" 
               variant="outline" 
               className="w-full border-slate-300 bg-white text-slate-800 hover:bg-slate-100"
-              onClick={handleWhatsAppEnquiry}
-              disabled={isLoading}
+              onClick={() => {
+                if (successWhatsAppUrl) {
+                  window.open(successWhatsAppUrl, "_blank");
+                  return;
+                }
+                handleWhatsAppEnquiry();
+              }}
+              disabled={isLoading || !settings.whatsappNumber}
             >
               <MessageCircle className="mr-2 h-4 w-4" />
               WhatsApp

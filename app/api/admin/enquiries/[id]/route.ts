@@ -3,7 +3,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { enquiryStatusSchema } from "@/lib/validators";
-import { sendEnquiryNotification } from "@/lib/email";
+import { getNotificationRecipient, sendEmail } from "@/lib/email";
+import { getSiteSettings } from "@/lib/settings";
 
 export async function PATCH(
   req: NextRequest,
@@ -12,13 +13,13 @@ export async function PATCH(
   try {
     const { id } = await params;
     const session = await getServerSession(authOptions);
-    if (!session || (session.user as any).role !== "ADMIN") {
-      return new NextResponse("Unauthorized", { status: 401 });
+    if (!session || session.user.role !== "ADMIN") {
+      return NextResponse.json({ error: "Admin access required" }, { status: 401 });
     }
 
     const body = await req.json();
     const validatedData = enquiryStatusSchema.parse(body);
-    const { notes } = body;
+    const { notes, priority, followUpDate } = validatedData;
 
     const existingEnquiry = await prisma.enquiry.findUnique({
       where: { id },
@@ -33,20 +34,31 @@ export async function PATCH(
       where: { id },
       data: { 
         status: validatedData.status,
+        priority: priority !== undefined ? priority : undefined,
         notes: notes !== undefined ? notes : undefined,
+        followUpDate: followUpDate === "" || followUpDate === null ? null : followUpDate ? new Date(followUpDate) : undefined,
+      } as any,
+      include: {
+        property: {
+          select: { id: true, title: true, slug: true, city: true, location: true, type: true, purpose: true, price: true } as any,
+        },
       },
     });
 
-    // Notify Admin of the change (Auditing)
-    await sendEnquiryNotification({
-      to: process.env.ADMIN_EMAIL,
+    const settings = await getSiteSettings();
+
+    await sendEmail({
+      to: getNotificationRecipient(settings.email),
       subject: `Lead Updated: ${existingEnquiry.name}`,
-      body: `
-        Lead status updated for ${existingEnquiry.name}
-        Property: ${existingEnquiry.property?.title || "General enquiry"}
-        New Status: ${validatedData.status}
-        Admin Notes: ${notes || "None"}
-      `,
+      text: [
+        `Lead status updated for ${existingEnquiry.name}`,
+        `Property: ${(existingEnquiry as any).property?.title || "General enquiry"}`,
+        `New Status: ${validatedData.status}`,
+        `Priority: ${priority || (existingEnquiry as any).priority}`,
+        `Follow Up: ${followUpDate || (existingEnquiry as any).followUpDate?.toISOString() || "None"}`,
+        `Admin Notes: ${notes || "None"}`,
+        `Admin dashboard: ${settings.siteUrl}/admin/enquiries`,
+      ].join("\n"),
     });
 
     return NextResponse.json(updatedEnquiry);
@@ -55,7 +67,7 @@ export async function PATCH(
       return NextResponse.json(error.errors, { status: 400 });
     }
     console.error("[ADMIN_ENQUIRY_PATCH]", error);
-    return new NextResponse("Internal Server Error", { status: 500 });
+    return NextResponse.json({ error: error.message || "Internal Server Error" }, { status: 500 });
   }
 }
 
@@ -66,8 +78,8 @@ export async function DELETE(
   try {
     const { id } = await params;
     const session = await getServerSession(authOptions);
-    if (!session || (session.user as any).role !== "ADMIN") {
-      return new NextResponse("Unauthorized", { status: 401 });
+    if (!session || session.user.role !== "ADMIN") {
+      return NextResponse.json({ error: "Admin access required" }, { status: 401 });
     }
 
     await prisma.enquiry.delete({
@@ -75,8 +87,8 @@ export async function DELETE(
     });
 
     return new NextResponse(null, { status: 204 });
-  } catch (error) {
+  } catch (error: any) {
     console.error("[ADMIN_ENQUIRY_DELETE]", error);
-    return new NextResponse("Internal Server Error", { status: 500 });
+    return NextResponse.json({ error: error.message || "Internal Server Error" }, { status: 500 });
   }
 }

@@ -2,32 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { enquirySchema } from "@/lib/validators";
 import { rateLimit } from "@/lib/rate-limit";
-import { sendEnquiryNotification } from "@/lib/email";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getNotificationRecipient, sendLeadNotification } from "@/lib/email";
+import { getSiteSettings } from "@/lib/settings";
+import { hasSpamTrap } from "@/lib/api-security";
+import { upsertLeadFromPublicForm } from "@/lib/leads";
 
 export async function GET() {
-  try {
-    const session = await getServerSession(authOptions);
-    if (!session || !session.user?.email) {
-      return new NextResponse("Unauthorized", { status: 401 });
-    }
-
-    const enquiries = await prisma.enquiry.findMany({
-      where: { email: session.user.email },
-      orderBy: { createdAt: "desc" },
-      include: {
-        property: {
-          select: { title: true, slug: true, images: true }
-        }
-      }
-    });
-
-    return NextResponse.json(enquiries);
-  } catch (error) {
-    console.error("[ENQUIRIES_GET]", error);
-    return new NextResponse("Internal Server Error", { status: 500 });
-  }
+  return NextResponse.json({ error: "Public enquiry lookup is disabled." }, { status: 404 });
 }
 
 export async function POST(req: NextRequest) {
@@ -47,6 +28,10 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
+    if (hasSpamTrap(body)) {
+      return NextResponse.json({ success: true, message: "Thanks! Our agent will contact you soon." });
+    }
+
     const validatedData = enquirySchema.parse(body);
 
     const property = validatedData.propertyId
@@ -57,40 +42,48 @@ export async function POST(req: NextRequest) {
       return new NextResponse("Property not found", { status: 404 });
     }
 
-    const enquiry = await prisma.enquiry.create({
-      data: {
-        name: validatedData.name,
-        email: validatedData.email || null,
-        phone: validatedData.phone,
-        message: validatedData.message,
-        preferredContactTime: validatedData.preferredContactTime,
-        propertyId: validatedData.propertyId || null,
-        source: property ? `Property Page - ${property.title}` : "Contact Page",
-      },
+    const { enquiry, isDuplicate } = await upsertLeadFromPublicForm({
+      name: validatedData.name,
+      email: validatedData.email || null,
+      phone: validatedData.phone,
+      message: validatedData.message,
+      preferredContactTime: validatedData.preferredContactTime,
+      propertyId: validatedData.propertyId || null,
+      source: validatedData.source || (property ? "property_detail" : "contact_page"),
+      budget: validatedData.budget || null,
+      preferredLocation: validatedData.preferredLocation || property?.location || property?.city || null,
+      preferredType: validatedData.preferredType || property?.type || null,
+      purpose: validatedData.purpose || property?.purpose || null,
     });
 
-    // Send Notification to Admin
-    await sendEnquiryNotification({
-      to: process.env.ADMIN_EMAIL,
-      subject: `New Lead: ${property?.title || "General enquiry"}`,
-      body: `
-        New enquiry for: ${property?.title || "General enquiry"}
-        Location: ${property?.address || "Not specified"}
-        Contact: ${validatedData.name} - ${validatedData.phone} - ${validatedData.email || "No email provided"}
-        Message: ${validatedData.message || "No message provided"}
-        
-        View in Admin Dashboard: ${process.env.NEXTAUTH_URL}/admin/enquiries
-      `,
+    const settings = await getSiteSettings();
+
+    await sendLeadNotification(getNotificationRecipient(settings.email), {
+      leadName: enquiry.name,
+      phone: enquiry.phone,
+      email: enquiry.email,
+      message: enquiry.message,
+      propertyTitle: property?.title || "General enquiry",
+      propertyUrl: property ? `${settings.siteUrl}/properties/${property.slug}` : null,
+      budget: enquiry.budget,
+      location: property?.location || property?.city || null,
+      source: enquiry.source,
+      submittedAt: enquiry.createdAt,
+      adminUrl: `${settings.siteUrl}/admin/enquiries`,
     });
 
     return NextResponse.json({ 
       success: true, 
       message: "Thanks! Our agent will contact you within 10 minutes.",
-      enquiryId: enquiry.id 
+      enquiryId: enquiry.id,
+      duplicateUpdated: isDuplicate,
+      whatsappUrl: settings.whatsappNumber
+        ? `https://wa.me/${settings.whatsappNumber}?text=${encodeURIComponent(`Hi ${settings.businessName}, I submitted an enquiry${property ? ` for ${property.title}` : ""}. Please help me with the next step.`)}`
+        : "",
     });
   } catch (error: any) {
     if (error.name === "ZodError") {
-      return NextResponse.json(error.errors, { status: 400 });
+      return NextResponse.json({ error: "Please check your enquiry details.", issues: error.issues || error.errors }, { status: 400 });
     }
     console.error("[ENQUIRIES_POST]", error);
     return new NextResponse("Internal Server Error", { status: 500 });

@@ -4,8 +4,8 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { MessageCircle, Phone, Mail } from "lucide-react";
 import { ContactModal } from "./ContactModal";
-import { siteConfig } from "@/data/siteConfig";
 import { formatPrice } from "@/lib/utils";
+import type { PublicSiteSettings } from "@/types/settings";
 
 interface StickyContactBarProps {
   property: {
@@ -16,20 +16,24 @@ interface StickyContactBarProps {
     price: number;
     phone?: string;
   };
+  settings: PublicSiteSettings;
 }
 
-export function StickyContactBar({ property }: StickyContactBarProps) {
+export function StickyContactBar({ property, settings }: StickyContactBarProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalSource, setModalSource] = useState<"property_detail" | "book_viewing">("property_detail");
 
   const handleWhatsApp = () => {
-    const message = `Hi, I'm interested in "${property.title}" (${formatPrice(property.price, siteConfig.currency)}) located at ${property.address}. ${window.location.href}`;
-    const phone = (property.phone || siteConfig.whatsapp).replace(/\D/g, "");
+    const message = `Hi, I'm interested in "${property.title}" (${formatPrice(property.price, settings.currency)}) located at ${property.address}. Source: whatsapp_click. ${window.location.href}`;
+    const phone = (settings.whatsappNumber || property.phone || "").replace(/\D/g, "");
+    if (!phone) return;
     const url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
     window.open(url, "_blank");
   };
 
   const handleCall = () => {
-    window.location.href = `tel:${property.phone || siteConfig.phone}`;
+    const phone = property.phone || settings.phone;
+    if (phone) window.location.href = `tel:${phone}`;
   };
 
   return (
@@ -39,6 +43,7 @@ export function StickyContactBar({ property }: StickyContactBarProps) {
           variant="outline"
           className="flex-1 bg-green-600 hover:bg-green-700 text-white border-none"
           onClick={handleWhatsApp}
+          disabled={!settings.whatsappNumber && !property.phone}
         >
           <MessageCircle className="mr-2 h-4 w-4" />
           WhatsApp
@@ -47,11 +52,15 @@ export function StickyContactBar({ property }: StickyContactBarProps) {
           variant="outline"
           className="flex-1 bg-blue-600 hover:bg-blue-700 text-white border-none"
           onClick={handleCall}
+          disabled={!property.phone && !settings.phone}
         >
           <Phone className="mr-2 h-4 w-4" />
           Call
         </Button>
-        <Button className="flex-1" onClick={() => setIsModalOpen(true)}>
+        <Button className="flex-1" onClick={() => {
+          setModalSource("property_detail");
+          setIsModalOpen(true);
+        }}>
           <Mail className="mr-2 h-4 w-4" />
           Enquire
         </Button>
@@ -61,6 +70,8 @@ export function StickyContactBar({ property }: StickyContactBarProps) {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         property={property}
+        settings={settings}
+        source={modalSource}
       />
     </>
   );

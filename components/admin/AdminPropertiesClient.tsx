@@ -1,9 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { Edit, ExternalLink, Plus, Search, Star, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { formatPrice } from "@/lib/utils";
-import { siteConfig } from "@/data/siteConfig";
+import type { PublicSiteSettings } from "@/types/settings";
 
 type AdminProperty = {
   id: string;
@@ -27,10 +27,31 @@ type AdminProperty = {
   updatedAt: Date | string;
 };
 
-export function AdminPropertiesClient({ properties }: { properties: AdminProperty[] }) {
+export function AdminPropertiesClient({ properties, settings }: { properties: AdminProperty[]; settings: PublicSiteSettings }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [query, setQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState(searchParams.get("status") || "all");
+
+  useEffect(() => {
+    const status = searchParams.get("status");
+    if (status) {
+      setStatusFilter(status);
+    } else {
+      setStatusFilter("all");
+    }
+  }, [searchParams]);
+
+  const handleStatusFilterChange = (status: string) => {
+    setStatusFilter(status);
+    const params = new URLSearchParams(window.location.search);
+    if (status === "all") {
+      params.delete("status");
+    } else {
+      params.set("status", status);
+    }
+    router.push(`/admin/properties?${params.toString()}`);
+  };
 
   const softDelete = async (id: string) => {
     if (!confirm("Soft delete this property? It will be hidden from the public site.")) return;
@@ -75,7 +96,7 @@ export function AdminPropertiesClient({ properties }: { properties: AdminPropert
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Properties</h1>
-          <p className="text-muted-foreground">Manage listings for {siteConfig.brandName}.</p>
+          <p className="text-muted-foreground">Manage listings for {settings.businessName}.</p>
         </div>
         <Button asChild>
           <Link href="/admin/properties/new">
@@ -98,7 +119,7 @@ export function AdminPropertiesClient({ properties }: { properties: AdminPropert
                 variant={statusFilter === status ? "default" : "outline"}
                 size="sm"
                 className="h-8 flex-none px-3 text-xs sm:text-sm"
-                onClick={() => setStatusFilter(status)}
+                onClick={() => handleStatusFilterChange(status)}
               >
                 {status === "all" ? "All" : status}
               </Button>
@@ -112,7 +133,7 @@ export function AdminPropertiesClient({ properties }: { properties: AdminPropert
           <Card key={property.id} className="flex min-w-0 flex-col gap-4 p-4 md:flex-row md:items-center">
             <div className="relative h-28 w-full md:w-40 rounded-lg overflow-hidden bg-muted shrink-0">
               {property.images[0]?.url ? (
-                <Image src={property.images[0].url} alt={property.title} fill className="object-cover" />
+                <Image src={property.images[0].url} alt={property.title} fill className="object-cover" unoptimized />
               ) : null}
             </div>
             <div className="flex-1 min-w-0">
@@ -123,7 +144,7 @@ export function AdminPropertiesClient({ properties }: { properties: AdminPropert
                 <Badge variant="outline">{property.status}</Badge>
                 <Badge variant="secondary">{property.type}</Badge>
               </div>
-              <p className="text-sm text-muted-foreground">{property.city} · {formatPrice(property.price, siteConfig.currency)}</p>
+              <p className="text-sm text-muted-foreground">{property.city} · {formatPrice(property.price, settings.currency)}</p>
               <p className="text-xs text-muted-foreground mt-1">/{property.slug}</p>
             </div>
             <div className="flex w-full min-w-0 flex-wrap gap-2 md:w-auto md:max-w-md md:justify-end">

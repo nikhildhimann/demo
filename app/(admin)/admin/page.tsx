@@ -57,14 +57,14 @@ export default async function AdminHomePage() {
   ]);
 
   const stats = [
-    ["Total Properties", totalProperties],
-    ["Active Listings", activeListings],
-    ["Sold Properties", soldProperties],
-    ["Rented Properties", rentedProperties],
-    ["New Leads", newLeads],
-    ["Total Enquiries", totalEnquiries],
-    ["Featured Properties", featuredProperties],
-  ] as const;
+    { label: "Total Properties", value: totalProperties, href: "/admin/properties" },
+    { label: "Active Listings", value: activeListings, href: "/admin/properties?status=AVAILABLE" },
+    { label: "Sold Properties", value: soldProperties, href: "/admin/properties?status=SOLD" },
+    { label: "Rented Properties", value: rentedProperties, href: "/admin/properties?status=RENTED" },
+    { label: "New Leads", value: newLeads, href: "/admin/enquiries?status=NEW" },
+    { label: "Total Enquiries", value: totalEnquiries, href: "/admin/enquiries" },
+    { label: "Featured Properties", value: featuredProperties, href: "/admin/properties?featured=true" },
+  ];
 
   return (
     <div className="space-y-8 p-6 md:p-8">
@@ -73,16 +73,18 @@ export default async function AdminHomePage() {
         <p className="text-muted-foreground">Manage listings, leads, and website operations from one place.</p>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {stats.map(([label, value]) => (
-          <Card key={label}>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm text-muted-foreground">{label}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-bold">{value}</p>
-            </CardContent>
-          </Card>
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {stats.map((stat) => (
+          <Link key={stat.label} href={stat.href} className="block transition-transform hover:-translate-y-1">
+            <Card className="h-full hover:border-slate-300 hover:shadow-md transition-all cursor-pointer">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm text-muted-foreground">{stat.label}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-3xl font-bold">{stat.value}</p>
+              </CardContent>
+            </Card>
+          </Link>
         ))}
       </div>
 
@@ -113,13 +115,15 @@ export default async function AdminHomePage() {
               <p className="text-sm text-muted-foreground">No enquiries yet.</p>
             ) : (
               (recentEnquiries as RecentEnquiry[]).map((enquiry) => (
-                <div key={enquiry.id} className="flex items-center justify-between rounded-lg border p-3">
-                  <div>
-                    <p className="font-medium">{enquiry.name}</p>
-                    <p className="text-xs text-muted-foreground">{enquiry.property?.title || "General enquiry"}</p>
+                <Link key={enquiry.id} href={`/admin/enquiries?id=${enquiry.id}`} className="block">
+                  <div className="flex items-center justify-between rounded-lg border p-3 hover:bg-slate-50 hover:border-slate-300 transition-colors cursor-pointer">
+                    <div>
+                      <p className="font-medium text-slate-900">{enquiry.name}</p>
+                      <p className="text-xs text-muted-foreground">{enquiry.property?.title || "General enquiry"}</p>
+                    </div>
+                    <Badge variant={enquiry.status === "NEW" ? "default" : "secondary"}>{enquiry.status}</Badge>
                   </div>
-                  <Badge variant={enquiry.status === "NEW" ? "default" : "secondary"}>{enquiry.status}</Badge>
-                </div>
+                </Link>
               ))
             )}
           </CardContent>
@@ -135,16 +139,18 @@ export default async function AdminHomePage() {
             <p className="text-sm text-muted-foreground">No properties added yet.</p>
           ) : (
             (latestProperties as LatestProperty[]).map((property) => (
-              <div key={property.id} className="flex items-center justify-between rounded-lg border p-3">
-                <div>
-                  <p className="font-medium">{property.title}</p>
-                  <p className="text-xs text-muted-foreground">{new Date(property.createdAt).toLocaleDateString()}</p>
+              <Link key={property.id} href={`/admin/properties/${property.id}/edit`} className="block">
+                <div className="flex items-center justify-between rounded-lg border p-3 hover:bg-slate-50 hover:border-slate-300 transition-colors cursor-pointer">
+                  <div>
+                    <p className="font-medium text-slate-900">{property.title}</p>
+                    <p className="text-xs text-muted-foreground">{new Date(property.createdAt).toLocaleDateString()}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {property.featured && <Badge>Featured</Badge>}
+                    <Badge variant="outline">{property.status}</Badge>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  {property.featured && <Badge>Featured</Badge>}
-                  <Badge variant="outline">{property.status}</Badge>
-                </div>
-              </div>
+              </Link>
             ))
           )}
         </CardContent>

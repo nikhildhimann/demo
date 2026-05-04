@@ -1,14 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { siteConfig } from "@/data/siteConfig";
 import type { PropertyCardData } from "@/lib/property-data";
+import type { PublicSiteSettings } from "@/types/settings";
 import { PremiumPropertyCard } from "@/components/property/PremiumPropertyCard";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Search, MapPin, Building, ShieldCheck, Star, TrendingUp, Users, Clock, Quote, MessageCircle } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const fadeIn = {
   hidden: { opacity: 0, y: 20 },
@@ -25,13 +26,15 @@ const staggerContainer = {
   },
 };
 
-export function HomeClient({ featuredProperties }: { featuredProperties: PropertyCardData[] }) {
+export function HomeClient({ featuredProperties, settings }: { featuredProperties: PropertyCardData[]; settings: PublicSiteSettings }) {
   const router = useRouter();
   const [location, setLocation] = useState("");
   const [type, setType] = useState("");
   const [minBudget, setMinBudget] = useState("");
   const [maxBudget, setMaxBudget] = useState("");
-  const whatsappHref = `https://wa.me/${siteConfig.whatsapp}?text=${encodeURIComponent("Hi, I am interested in your real estate services.")}`;
+  const whatsappHref = settings.whatsappNumber
+    ? `https://wa.me/${settings.whatsappNumber}?text=${encodeURIComponent("Hi, I am interested in your real estate services.")}`
+    : "";
 
   const handleSearch = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -45,20 +48,20 @@ export function HomeClient({ featuredProperties }: { featuredProperties: Propert
 
   return (
     <div className="flex flex-col min-h-screen">
-      <section className="relative min-h-[90vh] flex items-center justify-center text-white pt-20">
+      <section className="relative min-h-[90dvh] flex items-center justify-center text-white pt-20">
         <div className="absolute inset-0 z-0 overflow-hidden">
           <motion.img
             initial={{ scale: 1.1 }}
             animate={{ scale: 1 }}
             transition={{ duration: 10, repeat: Infinity, repeatType: "reverse", ease: "linear" }}
             src="https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=2000"
-            alt={`${siteConfig.brandName} featured home`}
+            alt={`${settings.businessName} featured home`}
             className="w-full h-full object-cover"
           />
           <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/40 to-background/90" />
         </div>
 
-        <div className="relative z-10 w-full max-w-6xl mx-auto px-4 mt-16 md:mt-0">
+        <div className="relative z-10 w-full max-w-7xl mx-auto px-4 mt-16 md:mt-0">
           <div className="max-w-3xl space-y-8">
             <motion.div initial="hidden" animate="visible" variants={staggerContainer} className="space-y-6">
               <motion.div variants={fadeIn} className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-sm font-medium">
@@ -67,11 +70,11 @@ export function HomeClient({ featuredProperties }: { featuredProperties: Propert
               </motion.div>
 
               <motion.h1 variants={fadeIn} className="text-5xl md:text-7xl font-extrabold tracking-tight leading-[1.05] max-w-4xl">
-                {siteConfig.heroTitle}
+                {settings.defaultSeoTitle || settings.businessName}
               </motion.h1>
 
               <motion.p variants={fadeIn} className="max-w-2xl text-xl font-medium text-slate-100 md:text-2xl">
-                {siteConfig.heroSubtitle}
+                {settings.tagline || settings.defaultSeoDescription}
               </motion.p>
             </motion.div>
 
@@ -79,54 +82,65 @@ export function HomeClient({ featuredProperties }: { featuredProperties: Propert
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.4 }}
-              className="mt-10 bg-white rounded-2xl p-4 shadow-2xl flex flex-col md:flex-row gap-4 max-w-4xl"
+              className="mt-10 bg-white rounded-2xl p-4 shadow-2xl w-full max-w-7xl"
               onSubmit={handleSearch}
             >
-              <div className="flex-1 flex items-center px-4 bg-slate-50 rounded-xl border border-slate-100">
-                <MapPin className="w-5 h-5 text-slate-400 mr-3" />
-                <input
-                  type="text"
-                  placeholder="Location"
-                  value={location}
-                  onChange={(event) => setLocation(event.target.value)}
-                  className="w-full border-none bg-transparent py-3 text-slate-950 outline-none placeholder:text-slate-500 focus:ring-0 md:py-4"
-                />
+              <div className="flex flex-col md:flex-row gap-3">
+                <div className="flex-[1.5] flex items-center px-4 bg-slate-50 rounded-xl border border-slate-100 hover:border-slate-300 focus-within:border-slate-300 focus-within:ring-1 focus-within:ring-slate-300 transition-all">
+                  <MapPin className="w-5 h-5 text-slate-400 mr-2 shrink-0" />
+                  <input
+                    type="text"
+                    placeholder="Location"
+                    value={location}
+                    onChange={(event) => setLocation(event.target.value)}
+                    className="w-full min-w-0 border-none bg-transparent py-3 text-slate-950 outline-none placeholder:text-slate-500 focus:ring-0 md:py-4"
+                  />
+                </div>
+                <div className="flex-1 flex items-center px-4 bg-slate-50 rounded-xl border border-slate-100 hover:border-slate-300 focus-within:border-slate-300 focus-within:ring-1 focus-within:ring-slate-300 transition-all">
+                  <span className="text-slate-400 font-medium mr-1 shrink-0">$</span>
+                  <input
+                    type="number"
+                    placeholder="Min Budget"
+                    value={minBudget}
+                    onChange={(event) => setMinBudget(event.target.value)}
+                    className="w-full min-w-0 border-none bg-transparent py-3 text-slate-950 outline-none placeholder:text-slate-500 focus:ring-0 md:py-4"
+                  />
+                </div>
+                <div className="flex-1 flex items-center px-3 bg-slate-50 rounded-xl border border-slate-100 hover:border-slate-300 focus-within:border-slate-300 focus-within:ring-1 focus-within:ring-slate-300 transition-all">
+                  <span className="text-slate-400 font-medium mr-1 shrink-0">$</span>
+                  <input
+                    type="number"
+                    placeholder="Max Budget"
+                    value={maxBudget}
+                    onChange={(event) => setMaxBudget(event.target.value)}
+                    className="w-full min-w-0 border-none bg-transparent py-3 text-slate-950 outline-none placeholder:text-slate-500 focus:ring-0 md:py-4"
+                  />
+                </div>
+                <div className="flex-1 flex items-center bg-slate-50 rounded-xl border border-slate-100 hover:border-slate-300 focus-within:border-slate-300 focus-within:ring-1 focus-within:ring-slate-300 transition-all">
+                  <Select value={type} onValueChange={(value) => setType(value)}>
+                    <SelectTrigger className="w-full border-none bg-transparent py-3 text-slate-950 outline-none focus:ring-0 md:py-4 h-auto shadow-none">
+                      <div className="flex items-center">
+                        <Building className="w-5 h-5 text-slate-400 mr-2 shrink-0" />
+                        <SelectValue placeholder="Property" />
+                      </div>
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl border-slate-200">
+                      <SelectItem value="ALL">All Types</SelectItem>
+                      <SelectItem value="HOUSE">House</SelectItem>
+                      <SelectItem value="APARTMENT">Apartment</SelectItem>
+                      <SelectItem value="VILLA">Villa</SelectItem>
+                      <SelectItem value="TOWNHOUSE">Townhouse</SelectItem>
+                      <SelectItem value="LAND">Land</SelectItem>
+                      <SelectItem value="PLOT">Plot</SelectItem>
+                      <SelectItem value="COMMERCIAL">Commercial</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button type="submit" size="lg" className="md:w-auto w-full rounded-xl text-lg h-[52px] md:h-auto px-8 shadow-lg shadow-primary/25 shrink-0">
+                  <Search className="w-5 h-5 mr-2 shrink-0" />
+                  Search
+                </Button>
               </div>
-              <div className="flex-1 flex items-center px-4 bg-slate-50 rounded-xl border border-slate-100">
-                <Search className="w-5 h-5 text-slate-400 mr-3" />
-                <input
-                  type="number"
-                  placeholder="Min Budget"
-                  value={minBudget}
-                  onChange={(event) => setMinBudget(event.target.value)}
-                  className="w-full border-none bg-transparent py-3 text-slate-950 outline-none placeholder:text-slate-500 focus:ring-0 md:py-4"
-                />
-              </div>
-              <div className="flex-1 flex items-center px-4 bg-slate-50 rounded-xl border border-slate-100">
-                <Search className="w-5 h-5 text-slate-400 mr-3" />
-                <input
-                  type="number"
-                  placeholder="Max Budget"
-                  value={maxBudget}
-                  onChange={(event) => setMaxBudget(event.target.value)}
-                  className="w-full border-none bg-transparent py-3 text-slate-950 outline-none placeholder:text-slate-500 focus:ring-0 md:py-4"
-                />
-              </div>
-              <div className="flex-1 items-center px-4 bg-slate-50 rounded-xl border border-slate-100 hidden sm:flex">
-                <Building className="w-5 h-5 text-slate-400 mr-3" />
-                <select value={type} onChange={(event) => setType(event.target.value)} className="w-full appearance-none border-none bg-transparent py-3 text-slate-950 outline-none focus:ring-0 md:py-4">
-                  <option value="">Property Type</option>
-                  <option value="HOUSE">House</option>
-                  <option value="APARTMENT">Apartment</option>
-                  <option value="VILLA">Villa</option>
-                  <option value="PLOT">Plot</option>
-                  <option value="COMMERCIAL">Commercial</option>
-                </select>
-              </div>
-              <Button type="submit" size="lg" className="md:w-auto w-full rounded-xl text-lg h-14 md:h-auto px-8 shadow-lg shadow-primary/25">
-                <Search className="w-5 h-5 mr-2" />
-                Search
-              </Button>
             </motion.form>
 
             <motion.div variants={fadeIn} className="flex flex-col sm:flex-row gap-4">
@@ -190,7 +204,7 @@ export function HomeClient({ featuredProperties }: { featuredProperties: Propert
             >
               {featuredProperties.map((property) => (
                 <motion.div key={property.id} variants={fadeIn}>
-                  <PremiumPropertyCard property={property} />
+                  <PremiumPropertyCard property={property} settings={settings} />
                 </motion.div>
               ))}
             </motion.div>
@@ -220,7 +234,7 @@ export function HomeClient({ featuredProperties }: { featuredProperties: Propert
               { icon: ShieldCheck, title: "Professional Property Management", desc: "Expert management services to maximize your property returns." },
               { icon: Users, title: "Reliable Tenant Screening", desc: "Thorough screening process to find the perfect tenants." },
               { icon: TrendingUp, title: "Fast Maintenance Support", desc: "Quick response and professional maintenance services." },
-              { icon: Clock, title: "Local Market Expertise", desc: "Deep knowledge of Sydney property market trends." },
+              { icon: Clock, title: "Local Market Expertise", desc: `Deep knowledge of ${settings.city || "local"} property market trends.` },
             ].map((feature, i) => (
               <motion.div
                 key={feature.title}
@@ -244,10 +258,10 @@ export function HomeClient({ featuredProperties }: { featuredProperties: Propert
       <section className="py-24 bg-white relative z-10">
         <div className="container mx-auto px-4 grid lg:grid-cols-2 gap-12 items-center">
           <div className="space-y-6">
-            <p className="text-sm font-bold uppercase tracking-widest text-primary">About {siteConfig.brandName}</p>
+            <p className="text-sm font-bold uppercase tracking-widest text-primary">About {settings.businessName}</p>
             <h2 className="text-4xl md:text-5xl font-bold tracking-tight text-slate-900">About Us</h2>
             <p className="text-lg text-slate-600 leading-relaxed">
-              TOTTO Living is a Sydney-based property management company focused on providing reliable rental solutions and professional property management services. We help property owners maximize returns while ensuring tenants have a smooth and comfortable rental experience.
+              {settings.defaultSeoDescription || settings.tagline || `${settings.businessName} helps property owners, buyers, tenants, and sellers move forward with reliable guidance.`}
             </p>
             <Button size="lg" className="rounded-full" asChild>
               <Link href="/about">Learn More</Link>
@@ -264,7 +278,7 @@ export function HomeClient({ featuredProperties }: { featuredProperties: Propert
           <div className="text-center max-w-2xl mx-auto mb-16">
             <p className="text-sm font-bold uppercase tracking-widest text-primary mb-2">Our Services</p>
             <h2 className="text-4xl md:text-5xl font-bold text-slate-900">Property Management Services</h2>
-            <p className="text-slate-600 mt-4">Comprehensive solutions for property owners and tenants in Sydney.</p>
+            <p className="text-slate-600 mt-4">Comprehensive solutions for property owners, buyers, sellers, and tenants{settings.city ? ` in ${settings.city}` : ""}.</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -274,6 +288,7 @@ export function HomeClient({ featuredProperties }: { featuredProperties: Propert
               "Tenant Management",
               "Property Maintenance",
               "3D Virtual Tours",
+              "Real Estate Consulting",
             ].map((service, i) => (
               <motion.div
                 key={service}
@@ -333,12 +348,14 @@ export function HomeClient({ featuredProperties }: { featuredProperties: Propert
               <Button size="lg" className="h-14 rounded-full bg-slate-900 px-8 text-lg font-bold text-white shadow-xl hover:bg-slate-800" asChild>
                 <Link href="/properties">Browse Properties</Link>
               </Button>
-              <Button size="lg" variant="outline" className="h-14 rounded-full border-emerald-400 bg-emerald-600 px-8 text-lg font-bold text-white hover:border-emerald-500 hover:bg-emerald-700" asChild>
-                <a href={whatsappHref} target="_blank" rel="noreferrer">
-                  <MessageCircle className="w-5 h-5 mr-2" />
-                  Talk on WhatsApp
-                </a>
-              </Button>
+              {whatsappHref && (
+                <Button size="lg" variant="outline" className="h-14 rounded-full border-emerald-400 bg-emerald-600 px-8 text-lg font-bold text-white hover:border-emerald-500 hover:bg-emerald-700" asChild>
+                  <a href={whatsappHref} target="_blank" rel="noreferrer">
+                    <MessageCircle className="w-5 h-5 mr-2" />
+                    Talk on WhatsApp
+                  </a>
+                </Button>
+              )}
             </div>
           </motion.div>
         </div>

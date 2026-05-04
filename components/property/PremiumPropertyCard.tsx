@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { motion } from "framer-motion";
@@ -7,7 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Bed, Bath, Square, MapPin, Heart, MessageCircle, Eye } from "lucide-react";
 import { useWishlist } from "@/hooks/useWishlist";
-import { siteConfig } from "@/data/siteConfig";
+import type { PublicSiteSettings } from "@/types/settings";
+import { ContactModal } from "@/components/property/ContactModal";
 
 interface PremiumPropertyCardProps {
   property: {
@@ -15,6 +17,8 @@ interface PremiumPropertyCardProps {
     title: string;
     slug: string;
     address: string;
+    city?: string;
+    location?: string | null;
     price: number;
     bedrooms: number;
     bathrooms: number;
@@ -22,17 +26,20 @@ interface PremiumPropertyCardProps {
     image: string;
     status: string;
     type: string;
+    purpose?: string;
   };
+  settings: PublicSiteSettings;
 }
 
-export function PremiumPropertyCard({ property }: PremiumPropertyCardProps) {
+export function PremiumPropertyCard({ property, settings }: PremiumPropertyCardProps) {
   const { isInWishlist, toggleWishlist } = useWishlist();
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const statusLabel = (property.status || "AVAILABLE").toLowerCase();
   const typeLabel = (property.type || "PROPERTY").toLowerCase();
   
   const formattedPrice = new Intl.NumberFormat("en-US", {
     style: "currency",
-    currency: siteConfig.currency,
+    currency: settings.currency,
     currencyDisplay: "narrowSymbol",
     maximumFractionDigits: 0,
   }).format(property.price);
@@ -53,10 +60,13 @@ export function PremiumPropertyCard({ property }: PremiumPropertyCardProps) {
 ${property.title}
 ${property.address}
 ${formattedPrice}
+Source: whatsapp_click
 
 Please provide more details.`;
   
-  const whatsappUrl = `https://wa.me/${siteConfig.whatsapp}?text=${encodeURIComponent(whatsappMessage)}`;
+  const whatsappUrl = settings.whatsappNumber
+    ? `https://wa.me/${settings.whatsappNumber}?text=${encodeURIComponent(whatsappMessage)}`
+    : "";
 
   return (
     <motion.article
@@ -150,9 +160,9 @@ Please provide more details.`;
           </div>
         </div>
 
-        <div className="mt-auto grid grid-cols-2 gap-3">
+        <div className="mt-auto flex flex-col gap-2.5">
           <Button
-            className="h-11 rounded-xl bg-slate-900 font-semibold text-white shadow-sm shadow-slate-950/10 hover:bg-slate-800 focus-visible:ring-emerald-500"
+            className="w-full h-11 rounded-xl bg-slate-900 font-semibold text-white shadow-sm shadow-slate-950/10 hover:bg-slate-800 focus-visible:ring-emerald-500"
             asChild
           >
             <Link href={`/properties/${property.slug}`}>
@@ -161,17 +171,51 @@ Please provide more details.`;
             </Link>
           </Button>
 
-          <Button
-            className="h-11 rounded-xl border border-emerald-500 bg-emerald-500 font-semibold text-white shadow-sm shadow-emerald-500/20 hover:border-emerald-600 hover:bg-emerald-600 focus-visible:ring-emerald-500/50"
-            asChild
-          >
-            <a href={whatsappUrl} target="_blank" rel="noreferrer">
-              <MessageCircle className="w-4 h-4 mr-2" />
-              WhatsApp
-            </a>
-          </Button>
+          <div className="grid grid-cols-2 gap-2.5">
+            <Button
+              className="w-full h-11 rounded-xl border border-slate-300 bg-white font-semibold text-slate-800 hover:bg-slate-100 px-0"
+              type="button"
+              onClick={() => setIsModalOpen(true)}
+            >
+              Enquire
+            </Button>
+
+            {whatsappUrl ? (
+              <Button
+                className="w-full h-11 rounded-xl border border-emerald-500 bg-emerald-500 font-semibold text-white shadow-sm shadow-emerald-500/20 hover:border-emerald-600 hover:bg-emerald-600 focus-visible:ring-emerald-500/50 px-0"
+                asChild
+              >
+                <a href={whatsappUrl} target="_blank" rel="noreferrer">
+                  <MessageCircle className="w-4 h-4 mr-1.5" />
+                  WhatsApp
+                </a>
+              </Button>
+            ) : (
+              <Button className="w-full h-11 rounded-xl border border-slate-300 bg-white font-semibold text-slate-800 hover:bg-slate-100 px-0" asChild>
+                <Link href="/contact">Contact</Link>
+              </Button>
+            )}
+          </div>
         </div>
       </div>
+
+      <ContactModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        property={{
+          id: property.id,
+          title: property.title,
+          image: property.image,
+          address: property.address,
+          price: property.price,
+          purpose: property.purpose,
+          type: property.type,
+          location: property.location || property.city || "",
+        }}
+        settings={settings}
+        source="property_card"
+        title="Enquire Now"
+      />
     </motion.article>
   );
 }

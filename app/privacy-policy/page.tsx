@@ -1,18 +1,25 @@
 import type { Metadata } from "next";
 import { InfoPage } from "@/components/InfoPage";
-import { siteConfig } from "@/data/siteConfig";
+import { getSiteSettings } from "@/lib/settings";
 
-export const metadata: Metadata = {
-  title: `Privacy Policy | ${siteConfig.brandName}`,
-  description: `Privacy policy for ${siteConfig.brandName}.`,
-};
+export const dynamic = "force-dynamic";
 
-export default function PrivacyPolicyPage() {
+export async function generateMetadata(): Promise<Metadata> {
+  const settings = await getSiteSettings();
+  return {
+    title: `Privacy Policy | ${settings.businessName}`,
+    description: `Privacy policy for ${settings.businessName}.`,
+  };
+}
+
+export default async function PrivacyPolicyPage() {
+  const settings = await getSiteSettings();
   return (
     <InfoPage
       eyebrow="Privacy"
       title="Privacy Policy"
-      description={`${siteConfig.brandName} respects client privacy and handles enquiries with care.`}
+      description={`${settings.businessName} respects client privacy and handles enquiries with care.`}
+      settings={settings}
       sections={[
         {
           title: "Information We Collect",

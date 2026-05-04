@@ -7,15 +7,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { siteConfig } from "@/data/siteConfig";
 import { MapEmbed } from "@/components/MapEmbed";
 import { useFormValidation } from "@/hooks/useFormValidation";
+import type { PublicSiteSettings } from "@/types/settings";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-export default function ContactClient() {
+export default function ContactClient({ settings }: { settings: PublicSiteSettings }) {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const whatsappUrl = `https://wa.me/${siteConfig.whatsapp}?text=${encodeURIComponent("Hi, I am interested in your real estate services.")}`;
+  const whatsappUrl = settings.whatsappNumber
+    ? `https://wa.me/${settings.whatsappNumber}?text=${encodeURIComponent("Hi, I am interested in your real estate services.")}`
+    : "";
 
   const validationRules = {
     name: { required: true, minLength: 2 },
@@ -24,7 +27,7 @@ export default function ContactClient() {
   };
 
   const { values, errors, setValue, setTouchedField, validateAll, resetForm } = useFormValidation(
-    { name: "", phone: "", message: "" },
+    { name: "", phone: "", email: "", message: "", budget: "", preferredLocation: "", purpose: "BUY", preferredType: "" },
     validationRules
   );
 
@@ -46,14 +49,20 @@ export default function ContactClient() {
         body: JSON.stringify({
           name: values.name,
           phone: values.phone,
+          email: values.email,
           message: values.message,
+          budget: values.budget,
+          preferredLocation: values.preferredLocation,
+          purpose: values.purpose,
+          preferredType: values.preferredType,
+          source: "contact_page",
         }),
       });
 
       const data = await response.json().catch(() => null);
       if (!response.ok) throw new Error(data?.error || "Unable to send enquiry");
 
-      setSuccess("Thanks! Our agent will contact you within 10 minutes.");
+      setSuccess(data?.whatsappUrl ? "Thanks! Your enquiry is saved. You can continue on WhatsApp for a faster next step." : "Thanks! Our agent will contact you within 10 minutes.");
       resetForm();
     } catch (err: any) {
       setError(err.message || "Unable to send enquiry. Please try again.");
@@ -110,9 +119,9 @@ export default function ContactClient() {
                     <div>
                       <h3 className="font-semibold text-lg">Phone</h3>
                       <p className="text-slate-700 mt-1 transition-colors cursor-pointer hover:text-slate-950">
-                        {siteConfig.phone}
+                        {settings.phone || "Phone not configured"}
                       </p>
-                      <p className="text-slate-500 text-sm mt-1">{siteConfig.businessHours}</p>
+                      <p className="text-slate-500 text-sm mt-1">{settings.businessHours}</p>
                     </div>
                   </div>
                   
@@ -123,7 +132,7 @@ export default function ContactClient() {
                     <div>
                       <h3 className="font-semibold text-lg">Email</h3>
                       <p className="text-slate-700 mt-1 transition-colors cursor-pointer hover:text-slate-950">
-                        {siteConfig.email}
+                        {settings.email || "Email not configured"}
                       </p>
                       <p className="text-slate-500 text-sm mt-1">Online support 24/7</p>
                     </div>
@@ -136,7 +145,7 @@ export default function ContactClient() {
                     <div>
                       <h3 className="font-semibold text-lg">Office</h3>
                       <p className="text-slate-700 mt-1 leading-relaxed">
-                        {siteConfig.address}
+                        {settings.displayAddress || "Office address not configured"}
                       </p>
                     </div>
                   </div>
@@ -144,12 +153,14 @@ export default function ContactClient() {
 
                 {/* WhatsApp Quick Link */}
                 <div className="pt-8 border-t border-slate-200">
-                  <Button className="h-14 w-full rounded-xl bg-emerald-500 text-lg font-bold text-white shadow-lg shadow-emerald-500/20 transition-all hover:scale-[1.02] hover:bg-emerald-600" asChild>
-                    <a href={whatsappUrl} target="_blank" rel="noreferrer">
-                    <MessageCircle className="w-6 h-6 mr-2" />
-                    Chat with us on WhatsApp
-                    </a>
-                  </Button>
+                  {whatsappUrl && (
+                    <Button className="h-14 w-full rounded-xl bg-emerald-500 text-lg font-bold text-white shadow-lg shadow-emerald-500/20 transition-all hover:scale-[1.02] hover:bg-emerald-600" asChild>
+                      <a href={whatsappUrl} target="_blank" rel="noreferrer">
+                      <MessageCircle className="w-6 h-6 mr-2" />
+                      Chat with us on WhatsApp
+                      </a>
+                    </Button>
+                  )}
                 </div>
               </div>
             </div>
@@ -194,6 +205,42 @@ export default function ContactClient() {
                     />
                     {errors.phone && <p className="text-sm text-red-500">{errors.phone}</p>}
                   </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email Optional</Label>
+                    <Input 
+                      id="email" 
+                      type="email" 
+                      placeholder="john@example.com" 
+                      className="h-12 bg-white"
+                      value={values.email} 
+                      onChange={(e) => setValue("email", e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Purpose</Label>
+                    <Select value={values.purpose} onValueChange={(value) => setValue("purpose", value)}>
+                      <SelectTrigger className="h-12 bg-white"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="BUY">Buy</SelectItem>
+                        <SelectItem value="RENT">Rent</SelectItem>
+                        <SelectItem value="SELL">Sell</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="budget">Budget Optional</Label>
+                    <Input id="budget" placeholder="Your budget" className="h-12 bg-white" value={values.budget} onChange={(e) => setValue("budget", e.target.value)} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="preferredLocation">Preferred Location</Label>
+                    <Input id="preferredLocation" placeholder="Area / city" className="h-12 bg-white" value={values.preferredLocation} onChange={(e) => setValue("preferredLocation", e.target.value)} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="preferredType">Property Type</Label>
+                    <Input id="preferredType" placeholder="Apartment, villa..." className="h-12 bg-white" value={values.preferredType} onChange={(e) => setValue("preferredType", e.target.value)} />
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="message">Message</Label>
@@ -229,7 +276,7 @@ export default function ContactClient() {
           transition={{ delay: 0.4 }}
           className="mt-16 w-full h-[500px] rounded-3xl overflow-hidden shadow-sm"
         >
-          <MapEmbed query={siteConfig.mapLocation} title="Office Location" className="h-full" />
+          <MapEmbed query={settings.mapLocation || settings.businessName} title="Office Location" className="h-full" />
         </motion.div>
       </div>
     </div>

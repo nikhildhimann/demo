@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import type { PropertyCardData } from "@/lib/property-data";
-import { siteConfig } from "@/data/siteConfig";
+import type { PublicSiteSettings } from "@/types/settings";
 import { PremiumPropertyCard } from "@/components/property/PremiumPropertyCard";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -12,20 +12,29 @@ import { Label } from "@/components/ui/label";
 import { Search, SlidersHorizontal, MapPin, Home, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import Link from "next/link";
 
 export function PropertiesClient({
   initialProperties,
   initialFilters = {},
+  settings,
+  title,
+  subtitle,
 }: {
   initialProperties: PropertyCardData[];
+  settings: PublicSiteSettings;
+  title?: string;
+  subtitle?: string;
   initialFilters?: Partial<{
     search: string;
     location: string;
+    purpose: string;
     type: string;
     status: string;
     min: string;
     max: string;
     bedrooms: string;
+    bathrooms: string;
     featured: string;
     favorites: string;
     sort: string;
@@ -36,11 +45,13 @@ export function PropertiesClient({
   const [filters, setFilters] = useState({
     search: initialFilters.search || "",
     location: initialFilters.location || "",
+    purpose: initialFilters.purpose || "",
     type: initialFilters.type || "",
     status: initialFilters.status || "",
     min: initialFilters.min || "",
     max: initialFilters.max || "",
     bedrooms: initialFilters.bedrooms || "",
+    bathrooms: initialFilters.bathrooms || "",
     featured: initialFilters.featured || "",
     favorites: initialFilters.favorites || "",
   });
@@ -53,11 +64,13 @@ export function PropertiesClient({
     setFilters({
       search: initialFilters.search || "",
       location: initialFilters.location || "",
+      purpose: initialFilters.purpose || "",
       type: initialFilters.type || "",
       status: initialFilters.status || "",
       min: initialFilters.min || "",
       max: initialFilters.max || "",
       bedrooms: initialFilters.bedrooms || "",
+      bathrooms: initialFilters.bathrooms || "",
       featured: initialFilters.featured || "",
       favorites: initialFilters.favorites || "",
     });
@@ -65,11 +78,13 @@ export function PropertiesClient({
   }, [
     initialFilters.search,
     initialFilters.location,
+    initialFilters.purpose,
     initialFilters.type,
     initialFilters.status,
     initialFilters.min,
     initialFilters.max,
     initialFilters.bedrooms,
+    initialFilters.bathrooms,
     initialFilters.featured,
     initialFilters.favorites,
     initialFilters.sort,
@@ -97,6 +112,10 @@ export function PropertiesClient({
             image: item.image || "https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&w=800",
             status: item.status || "AVAILABLE",
             type: item.type || "PROPERTY",
+            purpose: item.purpose || "BUY",
+            city: item.city || "",
+            location: item.location || "",
+            featured: Boolean(item.featured),
           }))
       );
     } catch {
@@ -110,7 +129,7 @@ export function PropertiesClient({
   };
 
   const clearFilters = () => {
-    setFilters({ search: "", location: "", type: "", status: "", min: "", max: "", bedrooms: "", featured: "", favorites: "" });
+    setFilters({ search: "", location: "", purpose: "", type: "", status: "", min: "", max: "", bedrooms: "", bathrooms: "", featured: "", favorites: "" });
     setSortBy("latest");
     router.push(pathname);
   };
@@ -162,15 +181,26 @@ export function PropertiesClient({
         </div>
 
         <div className="space-y-3">
+          <Label>Purpose</Label>
+          <div className="grid grid-cols-3 gap-2">
+            {["BUY", "RENT", "SELL"].map((purpose) => (
+              <Button
+                key={purpose}
+                variant={filters.purpose === purpose ? "default" : "outline"}
+                className={`w-full ${filters.purpose !== purpose ? "border-slate-300 bg-white text-slate-700 hover:bg-slate-100 hover:text-slate-950" : "bg-slate-900 text-white shadow-md hover:bg-slate-800"}`}
+                onClick={() => handleFilterChange("purpose", filters.purpose === purpose ? "" : purpose)}
+              >
+                {purpose}
+              </Button>
+            ))}
+          </div>
+        </div>
+
+        <div className="space-y-3">
           <Label>Status</Label>
           <div className="grid grid-cols-2 gap-2">
             {["AVAILABLE", "SOLD", "RENTED"].map((s) => (
-              <Button
-                key={s}
-                variant={filters.status === s ? "default" : "outline"}
-                className={`w-full ${filters.status !== s ? "border-slate-300 bg-white text-slate-700 hover:bg-slate-100 hover:text-slate-950" : "bg-slate-900 text-white shadow-md hover:bg-slate-800"}`}
-                onClick={() => handleFilterChange("status", filters.status === s ? "" : s)}
-              >
+              <Button key={s} variant={filters.status === s ? "default" : "outline"} className={`w-full ${filters.status !== s ? "border-slate-300 bg-white text-slate-700 hover:bg-slate-100 hover:text-slate-950" : "bg-slate-900 text-white shadow-md hover:bg-slate-800"}`} onClick={() => handleFilterChange("status", filters.status === s ? "" : s)}>
                 {s.charAt(0) + s.slice(1).toLowerCase()}
               </Button>
             ))}
@@ -188,6 +218,8 @@ export function PropertiesClient({
               <SelectItem value="HOUSE">House</SelectItem>
               <SelectItem value="APARTMENT">Apartment</SelectItem>
               <SelectItem value="VILLA">Villa</SelectItem>
+              <SelectItem value="TOWNHOUSE">Townhouse</SelectItem>
+              <SelectItem value="LAND">Land</SelectItem>
               <SelectItem value="PLOT">Plot</SelectItem>
               <SelectItem value="COMMERCIAL">Commercial</SelectItem>
             </SelectContent>
@@ -206,7 +238,7 @@ export function PropertiesClient({
         </div>
 
         <div className="space-y-3">
-          <Label>Price Range ({siteConfig.currency})</Label>
+          <Label>Price Range ({settings.currency})</Label>
           <div className="flex items-center gap-3">
             <Input type="number" placeholder="Min" className="h-11 bg-white" value={filters.min} onChange={(e) => handleFilterChange("min", e.target.value)} />
             <span className="text-slate-500">-</span>
@@ -227,6 +259,20 @@ export function PropertiesClient({
             })}
           </div>
         </div>
+
+        <div className="space-y-3">
+          <Label>Bathrooms</Label>
+          <div className="grid grid-cols-4 gap-2">
+            {["1", "2", "3", "4+"].map((bath) => {
+              const val = bath.replace("+", "");
+              return (
+                <Button key={bath} variant={filters.bathrooms === val ? "default" : "outline"} className={`w-full ${filters.bathrooms !== val ? "border-slate-300 bg-white text-slate-700 hover:bg-slate-100 hover:text-slate-950" : "bg-slate-900 text-white hover:bg-slate-800"}`} onClick={() => handleFilterChange("bathrooms", filters.bathrooms === val ? "" : val)}>
+                  {bath}
+                </Button>
+              );
+            })}
+          </div>
+        </div>
         <Button className="h-11 w-full bg-slate-900 text-white hover:bg-slate-800" onClick={() => applyFilters()}>
           Apply Filters
         </Button>
@@ -239,8 +285,8 @@ export function PropertiesClient({
       <div className="container mx-auto px-4">
         <div className="mb-10 rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-sm md:text-left">
           <p className="text-sm font-bold uppercase tracking-widest text-primary mb-2">Premium listings</p>
-          <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-slate-900 mb-2">Explore Available Properties</h1>
-          <p className="text-lg text-slate-600">Find verified homes, apartments, villas, and investment properties.</p>
+          <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-slate-900 mb-2">{title || "Explore Available Properties"}</h1>
+          <p className="text-lg text-slate-600">{subtitle || "Find verified homes, apartments, villas, and investment properties."}</p>
         </div>
 
         <div className="flex flex-col lg:flex-row gap-8 items-start">
@@ -299,10 +345,21 @@ export function PropertiesClient({
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.22 }}
                   >
-                    <PremiumPropertyCard property={property} />
+                    <PremiumPropertyCard property={property} settings={settings} />
                   </motion.div>
                 ))}
               </motion.div>
+            )}
+            {processedProperties.length > 0 && (
+              <div className="mt-16 rounded-3xl bg-slate-900 p-8 text-center text-white shadow-xl md:p-12">
+                <h3 className="mb-4 text-3xl font-bold md:text-4xl">Thinking of Selling?</h3>
+                <p className="mx-auto mb-8 max-w-2xl text-lg text-slate-300">
+                  Get a free appraisal from our local market experts and see how much your property is worth in today&apos;s market.
+                </p>
+                <Button size="lg" className="rounded-full bg-emerald-500 px-8 text-white hover:bg-emerald-600" asChild>
+                  <Link href="/sell">Get Free Property Appraisal</Link>
+                </Button>
+              </div>
             )}
           </main>
         </div>
@@ -312,7 +369,7 @@ export function PropertiesClient({
         {isMobileFiltersOpen && (
           <>
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[9998] bg-black/60 lg:hidden" onClick={() => setIsMobileFiltersOpen(false)} />
-            <motion.div initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }} transition={{ type: "spring", damping: 25, stiffness: 200 }} className="fixed right-0 top-0 z-[9999] h-full w-[85vw] max-w-[400px] overflow-y-auto bg-white shadow-2xl lg:hidden">
+            <motion.div initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }} transition={{ type: "spring", damping: 25, stiffness: 200 }} className="fixed right-0 top-0 z-[9999] h-[100dvh] w-[85vw] max-w-[400px] overflow-y-auto bg-white shadow-2xl lg:hidden">
               <div className="p-4 flex justify-end">
                 <Button variant="ghost" size="icon" onClick={() => setIsMobileFiltersOpen(false)}>
                   <X className="w-6 h-6 text-slate-500" />

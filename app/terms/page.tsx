@@ -1,18 +1,25 @@
 import type { Metadata } from "next";
 import { InfoPage } from "@/components/InfoPage";
-import { siteConfig } from "@/data/siteConfig";
+import { getSiteSettings } from "@/lib/settings";
 
-export const metadata: Metadata = {
-  title: `Terms & Conditions | ${siteConfig.brandName}`,
-  description: `Terms and conditions for using ${siteConfig.brandName}.`,
-};
+export const dynamic = "force-dynamic";
 
-export default function TermsPage() {
+export async function generateMetadata(): Promise<Metadata> {
+  const settings = await getSiteSettings();
+  return {
+    title: `Terms & Conditions | ${settings.businessName}`,
+    description: `Terms and conditions for using ${settings.businessName}.`,
+  };
+}
+
+export default async function TermsPage() {
+  const settings = await getSiteSettings();
   return (
     <InfoPage
       eyebrow="Terms"
       title="Terms & Conditions"
-      description={`Please review these terms before using ${siteConfig.brandName} property services.`}
+      description={`Please review these terms before using ${settings.businessName} property services.`}
+      settings={settings}
       sections={[
         {
           title: "Property Information",

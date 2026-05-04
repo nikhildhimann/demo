@@ -7,7 +7,8 @@ import { Bot, MessageCircle, Send, X, Minus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ChatMessage, type ChatMessageData, type SuggestedProperty } from "@/components/chatbot/ChatMessage";
-import { buildChatbotWhatsAppMessage, buildWhatsAppUrl, getStackronWhatsAppUrl } from "@/lib/whatsapp";
+import { buildChatbotWhatsAppMessage, buildWhatsAppUrl } from "@/lib/whatsapp";
+import type { PublicSiteSettings } from "@/types/settings";
 
 const GREETING =
   "Hi 👋 Looking for a property? I can help you find the best options based on your budget and location.";
@@ -19,6 +20,8 @@ type Step =
   | "budget"
   | "customBudget"
   | "propertyType"
+  | "bedrooms"
+  | "timeline"
   | "leadConsent"
   | "name"
   | "phone"
@@ -30,6 +33,8 @@ type Answers = {
   location: string;
   budget: string;
   propertyType: string;
+  bedrooms: string;
+  timeline: string;
   name: string;
   phone: string;
 };
@@ -59,9 +64,27 @@ const budgetOptions = [
 
 const propertyTypeOptions = [
   { label: "Apartment", value: "APARTMENT" },
+  { label: "House", value: "HOUSE" },
   { label: "Villa", value: "VILLA" },
-  { label: "Plot", value: "HOUSE" },
+  { label: "Townhouse", value: "TOWNHOUSE" },
+  { label: "Land", value: "LAND" },
+  { label: "Plot", value: "PLOT" },
   { label: "Commercial", value: "COMMERCIAL" },
+];
+
+const bedroomOptions = [
+  { label: "1 Bedroom", value: "1" },
+  { label: "2 Bedrooms", value: "2" },
+  { label: "3 Bedrooms", value: "3" },
+  { label: "4+ Bedrooms", value: "4" },
+  { label: "Any", value: "any" },
+];
+
+const timelineOptions = [
+  { label: "Immediately", value: "immediately" },
+  { label: "1-3 Months", value: "1_3_months" },
+  { label: "3-6 Months", value: "3_6_months" },
+  { label: "Just Browsing", value: "browsing" },
 ];
 
 const leadConsentOptions = [
@@ -97,7 +120,7 @@ function budgetToQuery(budgetValue: string) {
   return {};
 }
 
-export default function AIPropertyAssistant() {
+export default function AIPropertyAssistant({ settings }: { settings: PublicSiteSettings }) {
   const [open, setOpen] = useState(false);
   const [minimized, setMinimized] = useState(false);
   const [step, setStep] = useState<Step>("interest");
@@ -114,6 +137,8 @@ export default function AIPropertyAssistant() {
     location: "",
     budget: "",
     propertyType: "",
+    bedrooms: "",
+    timeline: "",
     name: "",
     phone: "",
   });
@@ -121,7 +146,7 @@ export default function AIPropertyAssistant() {
   const [typing, setTyping] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
-  const [whatsAppUrl, setWhatsAppUrl] = useState(getStackronWhatsAppUrl());
+  const [whatsAppUrl, setWhatsAppUrl] = useState(buildWhatsAppUrl(settings.whatsappNumber));
   const [leadSaved, setLeadSaved] = useState(false);
 
   const scrollerRef = useRef<HTMLDivElement>(null);
@@ -161,6 +186,7 @@ export default function AIPropertyAssistant() {
     if (range.minPrice) params.set("minPrice", range.minPrice);
     if (range.maxPrice) params.set("maxPrice", range.maxPrice);
     if (nextAnswers.propertyType) params.set("type", nextAnswers.propertyType);
+    if (nextAnswers.bedrooms && nextAnswers.bedrooms !== "any") params.set("bedrooms", nextAnswers.bedrooms);
 
     const response = await fetch(`/api/properties?${params.toString()}`);
     if (!response.ok) throw new Error("Unable to fetch matching properties");
@@ -180,7 +206,12 @@ export default function AIPropertyAssistant() {
   };
 
   const submitLead = async (nextAnswers: Answers) => {
-    const message = `Chatbot requirement - Type: ${getInterestLabel(nextAnswers.interestType)} | Location: ${nextAnswers.location} | Budget: ${nextAnswers.budget} | Property Type: ${getPropertyTypeLabel(nextAnswers.propertyType)}`;
+    const message = `Chatbot requirement - Type: ${getInterestLabel(nextAnswers.interestType)} | Location: ${nextAnswers.location} | Budget: ${nextAnswers.budget} | Property Type: ${getPropertyTypeLabel(nextAnswers.propertyType)} | Bedrooms: ${nextAnswers.bedrooms} | Timeline: ${nextAnswers.timeline}`;
+    
+    // Determine priority
+    let priority = "WARM";
+    if (nextAnswers.timeline === "immediately") priority = "HOT";
+    else if (nextAnswers.timeline === "browsing") priority = "COLD";
 
     const response = await fetch("/api/chatbot-leads", {
       method: "POST",
@@ -194,6 +225,7 @@ export default function AIPropertyAssistant() {
         propertyType: getPropertyTypeLabel(nextAnswers.propertyType),
         message,
         source: "chatbot",
+        priority, // Will need to update the API endpoint to accept this
       }),
     });
 
@@ -240,6 +272,26 @@ export default function AIPropertyAssistant() {
     if (step === "propertyType") {
       const nextAnswers = { ...answers, propertyType: value };
       setAnswers(nextAnswers);
+      setStep("bedrooms");
+      await askNext(() => {
+        addBotMessage("How many bedrooms do you need?", bedroomOptions);
+      });
+      return;
+    }
+
+    if (step === "bedrooms") {
+      const nextAnswers = { ...answers, bedrooms: value };
+      setAnswers(nextAnswers);
+      setStep("timeline");
+      await askNext(() => {
+        addBotMessage("What is your expected timeline?", timelineOptions);
+      });
+      return;
+    }
+
+    if (step === "timeline") {
+      const nextAnswers = { ...answers, timeline: value };
+      setAnswers(nextAnswers);
       setIsLoading(true);
       setStep("saving");
 
@@ -256,7 +308,7 @@ export default function AIPropertyAssistant() {
         setStep("leadConsent");
       } catch (err: any) {
         setError(err.message || "Failed to fetch matching properties");
-        setStep("propertyType");
+        setStep("timeline");
       } finally {
         setIsLoading(false);
       }
@@ -335,6 +387,8 @@ export default function AIPropertyAssistant() {
       try {
         await submitLead(nextAnswers);
         const message = buildChatbotWhatsAppMessage({
+          businessName: settings.businessName,
+          whatsappNumber: settings.whatsappNumber,
           interestType: getInterestLabel(nextAnswers.interestType),
           location: nextAnswers.location,
           budget: nextAnswers.budget,
@@ -342,7 +396,7 @@ export default function AIPropertyAssistant() {
           name: nextAnswers.name,
           phone: nextAnswers.phone,
         });
-        setWhatsAppUrl(buildWhatsAppUrl(message));
+        setWhatsAppUrl(buildWhatsAppUrl(settings.whatsappNumber, message));
         setLeadSaved(true);
 
         await askNext(() => {
@@ -368,12 +422,12 @@ export default function AIPropertyAssistant() {
         quickReplies: interestOptions,
       },
     ]);
-    setAnswers({ interestType: "", location: "", budget: "", propertyType: "", name: "", phone: "" });
+    setAnswers({ interestType: "", location: "", budget: "", propertyType: "", bedrooms: "", timeline: "", name: "", phone: "" });
     setInputValue("");
     setError("");
     setTyping(false);
     setIsLoading(false);
-    setWhatsAppUrl(getStackronWhatsAppUrl());
+    setWhatsAppUrl(buildWhatsAppUrl(settings.whatsappNumber));
     setLeadSaved(false);
   };
 
@@ -436,13 +490,14 @@ export default function AIPropertyAssistant() {
 
               {!minimized && (
                 <>
-                  <div ref={scrollerRef} className="max-h-[min(520px,calc(100vh-220px))] min-h-[320px] space-y-3 overflow-y-auto px-3 py-3 sm:h-[60vh]">
+                  <div ref={scrollerRef} className="max-h-[min(520px,calc(100dvh-220px))] min-h-[320px] space-y-3 overflow-y-auto px-3 py-3 sm:h-[60dvh]">
                     {messages.map((message, idx) => (
                       <ChatMessage
                         key={message.id}
                         message={message}
                         isLast={idx === messages.length - 1}
                         disabled={isLoading}
+                        currency={settings.currency}
                         onQuickReply={handleQuickReply}
                       />
                     ))}
@@ -467,24 +522,28 @@ export default function AIPropertyAssistant() {
                       <Button size="xs" variant="outline" className="border-slate-300 bg-white text-slate-800 hover:bg-slate-100" asChild>
                         <Link href="/properties">Browse Properties</Link>
                       </Button>
+                      {settings.whatsappNumber && (
+                        <Button size="xs" variant="outline" className="border-slate-300 bg-white text-slate-800 hover:bg-slate-100" asChild>
+                          <a href={buildWhatsAppUrl(settings.whatsappNumber)} target="_blank" rel="noreferrer">
+                            Talk on WhatsApp
+                          </a>
+                        </Button>
+                      )}
                       <Button size="xs" variant="outline" className="border-slate-300 bg-white text-slate-800 hover:bg-slate-100" asChild>
-                        <a href={getStackronWhatsAppUrl()} target="_blank" rel="noreferrer">
-                          Talk on WhatsApp
-                        </a>
-                      </Button>
-                      <Button size="xs" variant="outline" className="border-slate-300 bg-white text-slate-800 hover:bg-slate-100" asChild>
-                        <a href="tel:+919464402648">Call Now</a>
+                        <a href={settings.phone ? `tel:${settings.phone}` : "/contact"}>Call Now</a>
                       </Button>
                     </div>
 
                     {step === "done" && (
                       <div className="mb-2 flex flex-wrap gap-2">
-                        <Button size="sm" className="bg-emerald-500 text-white hover:bg-emerald-600" asChild>
-                          <a href={whatsAppUrl} target="_blank" rel="noreferrer">
-                            <MessageCircle className="mr-1 h-4 w-4" />
-                            Continue on WhatsApp
-                          </a>
-                        </Button>
+                        {whatsAppUrl && (
+                          <Button size="sm" className="bg-emerald-500 text-white hover:bg-emerald-600" asChild>
+                            <a href={whatsAppUrl} target="_blank" rel="noreferrer">
+                              <MessageCircle className="mr-1 h-4 w-4" />
+                              Continue on WhatsApp
+                            </a>
+                          </Button>
+                        )}
                         <Button size="sm" variant="outline" className="border-slate-300 bg-white text-slate-800 hover:bg-slate-100" asChild>
                           <Link href="/properties">Browse Properties</Link>
                         </Button>

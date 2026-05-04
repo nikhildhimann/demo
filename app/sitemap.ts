@@ -1,14 +1,16 @@
 import { MetadataRoute } from 'next'
 import prisma from "@/lib/prisma"
+import { getSiteSettings } from "@/lib/settings"
 
 export const dynamic = "force-dynamic"
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXTAUTH_URL || 'http://localhost:3000'
+  const settings = await getSiteSettings();
+  const baseUrl = settings.siteUrl;
 
   const properties = await prisma.property.findMany({
     where: { deletedAt: null, status: { not: "DRAFT" } },
-    select: { slug: true, updatedAt: true },
+    select: { slug: true, updatedAt: true, city: true, type: true },
   }).catch(() => {
     return []
   })
@@ -16,6 +18,18 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const propertyUrls = properties.map((p) => ({
     url: `${baseUrl}/properties/${p.slug}`,
     lastModified: p.updatedAt,
+  }))
+
+  const cities = Array.from(new Set(properties.map(p => p.city.toLowerCase().replace(/\s+/g, '-'))));
+  const cityUrls = cities.map((city) => ({
+    url: `${baseUrl}/properties/in/${city}`,
+    lastModified: new Date(),
+  }))
+
+  const cityTypes = Array.from(new Set(properties.map(p => `${p.city.toLowerCase().replace(/\s+/g, '-')}/${p.type.toLowerCase().replace(/\s+/g, '-')}`)));
+  const cityTypeUrls = cityTypes.map((cityType) => ({
+    url: `${baseUrl}/properties/in/${cityType}`,
+    lastModified: new Date(),
   }))
 
   return [
@@ -47,6 +61,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       url: `${baseUrl}/faq`,
       lastModified: new Date(),
     },
+    ...cityUrls,
+    ...cityTypeUrls,
     ...propertyUrls,
   ]
 }

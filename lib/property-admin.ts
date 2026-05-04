@@ -15,7 +15,7 @@ export function normalizePropertyInput(body: unknown) {
       ? parsedBody.images
       : String(parsedBody.images || "")
           .split("\n")
-          .map((url, index) => url.trim() ? { url: url.trim(), publicId: "manual", order: index } : null)
+          .map((url, index) => url.trim() ? { url: url.trim(), order: index } : null)
           .filter(Boolean),
   });
 
@@ -30,6 +30,7 @@ export function normalizePropertyInput(body: unknown) {
     location: parsed.location || parsed.city,
     state: parsed.state || "",
     zip: parsed.zip || "",
+    zipCode: parsed.zipCode || parsed.zip || "",
     country: parsed.country || "",
   };
 }

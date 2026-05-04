@@ -7,8 +7,11 @@ export default withAuth(
     const isAdmin = token?.role === "ADMIN";
     const pathname = req.nextUrl.pathname;
 
-    // Role check for all /admin routes
-    if (pathname.startsWith("/admin") && !isAdmin) {
+    // Role check for all admin-only routes.
+    if ((pathname.startsWith("/admin") || pathname.startsWith("/api/admin") || pathname.startsWith("/api/upload")) && !isAdmin) {
+      if (pathname.startsWith("/api/")) {
+        return NextResponse.json({ error: "Admin access required" }, { status: 401 });
+      }
       return NextResponse.redirect(new URL("/", req.url));
     }
   },
@@ -16,9 +19,9 @@ export default withAuth(
     callbacks: {
       authorized: ({ token, req }) => {
         const pathname = req.nextUrl.pathname;
-        // Protect /admin and /api/admin
-        if (pathname.startsWith("/admin") || pathname.startsWith("/api/admin")) {
-          return !!token;
+        // Protect /admin, /api/admin, and admin uploads.
+        if (pathname.startsWith("/admin") || pathname.startsWith("/api/admin") || pathname.startsWith("/api/upload")) {
+          return token?.role === "ADMIN";
         }
         // Allow public access to all other routes
         return true;
@@ -31,5 +34,6 @@ export const config = {
   matcher: [
     "/admin/:path*",
     "/api/admin/:path*",
+    "/api/upload/:path*",
   ],
 };

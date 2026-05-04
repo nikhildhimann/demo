@@ -1,7 +1,7 @@
-import { User, Property, Image, Enquiry, UserRole, PropertyStatus, PropertyType } from "@prisma/client";
+import { User, Property, Image, Enquiry, UserRole, PropertyStatus, PropertyType, PropertyPurpose, LeadStatus, LeadPriority } from "@prisma/client";
 
 export type { User, Property, Image, Enquiry };
-export { UserRole, PropertyStatus, PropertyType };
+export { UserRole, PropertyStatus, PropertyType, PropertyPurpose, LeadStatus, LeadPriority };
 
 export type SafeUser = Omit<User, "password"> & {
   createdAt: string;

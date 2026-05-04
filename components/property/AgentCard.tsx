@@ -4,8 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Phone, MessageCircle, Mail, Calendar, UserCheck } from "lucide-react";
 import { ContactModal } from "./ContactModal";
-import { formatPrice } from "@/lib/utils";
-import { siteConfig } from "@/data/siteConfig";
+import type { PublicSiteSettings } from "@/types/settings";
 
 interface AgentCardProps {
   property: {
@@ -22,14 +21,18 @@ interface AgentCardProps {
     phone: string;
     email: string;
   };
+  settings: PublicSiteSettings;
 }
 
-export function AgentCard({ property, agent }: AgentCardProps) {
+export function AgentCard({ property, agent, settings }: AgentCardProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalSource, setModalSource] = useState<"property_detail" | "book_viewing" | "price_guide">("property_detail");
 
   const handleWhatsApp = () => {
-    const message = `Hi Stackron Real Estate, I am interested in this property: "${property.title}" located at ${property.address}.`;
-    const url = `https://wa.me/919464402648?text=${encodeURIComponent(message)}`;
+    const message = `Hi ${settings.businessName}, I am interested in this property: "${property.title}" located at ${property.address}. Source: whatsapp_click.`;
+    const phone = settings.whatsappNumber || agent.phone.replace(/\D/g, "");
+    if (!phone) return;
+    const url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
     window.open(url, "_blank");
   };
 
@@ -48,7 +51,7 @@ export function AgentCard({ property, agent }: AgentCardProps) {
         </div>
         <div>
           <h4 className="font-bold text-slate-900">{agent.name}</h4>
-          <p className="text-sm font-medium text-slate-500">Real Estate Company</p>
+          <p className="text-sm font-medium text-slate-500">{settings.tagline || "Real estate team"}</p>
         </div>
       </div>
 
@@ -66,6 +69,7 @@ export function AgentCard({ property, agent }: AgentCardProps) {
           variant="outline" 
           className="h-11 w-full justify-start border-slate-200 bg-white px-4 text-slate-700 hover:bg-slate-50 hover:text-slate-900" 
           onClick={handleWhatsApp}
+          disabled={!settings.whatsappNumber && !agent.phone}
         >
           <MessageCircle className="mr-3 h-4 w-4 text-emerald-500" />
           <span className="font-medium">WhatsApp</span>
@@ -84,20 +88,38 @@ export function AgentCard({ property, agent }: AgentCardProps) {
       <div className="pt-2 space-y-3">
         <Button 
           className="h-11 w-full bg-slate-900 font-bold text-white hover:bg-slate-800" 
-          onClick={() => setIsModalOpen(true)}
+          onClick={() => {
+            setModalSource("property_detail");
+            setIsModalOpen(true);
+          }}
         >
           Enquire Now
         </Button>
         <Button 
           variant="outline" 
           className="h-11 w-full border-slate-200 bg-slate-50 font-bold text-slate-700 hover:bg-slate-100"
+          onClick={() => {
+            setModalSource("book_viewing");
+            setIsModalOpen(true);
+          }}
         >
           <Calendar className="mr-2 h-4 w-4" />
-          Schedule a Visit
+          Book Viewing
+        </Button>
+        <Button 
+          variant="outline" 
+          className="h-11 w-full border-slate-200 bg-white font-bold text-slate-700 hover:bg-slate-50"
+          onClick={() => {
+            setModalSource("price_guide");
+            setIsModalOpen(true);
+          }}
+        >
+          Request Price Guide
         </Button>
         <Button 
           className="h-11 w-full bg-emerald-500 font-bold text-white shadow-md shadow-emerald-500/20 hover:bg-emerald-600" 
           onClick={handleWhatsApp}
+          disabled={!settings.whatsappNumber && !agent.phone}
         >
           <MessageCircle className="mr-2 h-4 w-4" />
           WhatsApp Agent
@@ -108,6 +130,8 @@ export function AgentCard({ property, agent }: AgentCardProps) {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         property={property}
+        settings={settings}
+        source={modalSource}
       />
     </div>
   );

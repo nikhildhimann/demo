@@ -39,6 +39,8 @@ export type PropertyCardData = {
   title: string;
   slug: string;
   address: string;
+  city: string;
+  location?: string | null;
   price: number;
   bedrooms: number;
   bathrooms: number;
@@ -47,6 +49,8 @@ export type PropertyCardData = {
   image: string;
   status: string;
   type: string;
+  purpose: string;
+  featured: boolean;
 };
 
 const fallbackImage =
@@ -57,6 +61,8 @@ export function toPropertyCardData(property: {
   title: string;
   slug: string;
   address: string;
+  city: string;
+  location?: string | null;
   price: number;
   bedrooms: number;
   bathrooms: number;
@@ -64,6 +70,8 @@ export function toPropertyCardData(property: {
   size?: number | null;
   status: string;
   type: string;
+  purpose: string;
+  featured: boolean;
   images?: { url: string }[];
 }): PropertyCardData {
   return {
@@ -71,6 +79,8 @@ export function toPropertyCardData(property: {
     title: property.title,
     slug: property.slug,
     address: property.address,
+    city: property.city,
+    location: property.location,
     price: property.price,
     bedrooms: property.bedrooms,
     bathrooms: property.bathrooms,
@@ -78,6 +88,8 @@ export function toPropertyCardData(property: {
     image: property.images?.[0]?.url || fallbackImage,
     status: property.status || "AVAILABLE",
     type: property.type || "PROPERTY",
+    purpose: property.purpose || "BUY",
+    featured: property.featured,
   };
 }
 
@@ -103,6 +115,7 @@ export async function getProperties(filters: {
   city?: string;
   location?: string;
   type?: string;
+  purpose?: string;
   status?: string;
   featured?: string;
   min?: string;
@@ -110,6 +123,7 @@ export async function getProperties(filters: {
   minPrice?: string;
   maxPrice?: string;
   bedrooms?: string;
+  bathrooms?: string;
   sort?: string;
   limit?: string;
 } = {}) {
@@ -121,16 +135,20 @@ export async function getProperties(filters: {
 
   if (filters.status) where.status = filters.status;
   if (filters.type) where.type = filters.type;
+  if (filters.purpose) where.purpose = filters.purpose;
   if (filters.featured === "true") where.featured = true;
   const location = filters.location || filters.city;
   if (location) {
     where.OR = [
       { city: { contains: location, mode: "insensitive" } },
+      { location: { contains: location, mode: "insensitive" } },
+      { suburb: { contains: location, mode: "insensitive" } },
       { address: { contains: location, mode: "insensitive" } },
       { state: { contains: location, mode: "insensitive" } },
     ];
   }
   if (filters.bedrooms) where.bedrooms = { gte: Number.parseInt(filters.bedrooms, 10) };
+  if (filters.bathrooms) where.bathrooms = { gte: Number.parseInt(filters.bathrooms, 10) };
 
   const minPriceRaw = filters.min || filters.minPrice;
   const maxPriceRaw = filters.max || filters.maxPrice;
@@ -191,10 +209,25 @@ export async function getPropertyBySlug(slug: string) {
 export async function getRelatedProperties(property: {
   id: string;
   city: string;
+  location?: string | null;
   type: string;
   price: number;
 }, limit = 3) {
   const budgetSpread = property.price * 0.35;
+  const relatedConditions: any[] = [
+    { city: { equals: property.city, mode: "insensitive" } },
+    { type: property.type },
+    {
+      price: {
+        gte: Math.max(0, property.price - budgetSpread),
+        lte: property.price + budgetSpread,
+      },
+    },
+  ];
+
+  if (property.location) {
+    relatedConditions.unshift({ location: { equals: property.location, mode: "insensitive" } });
+  }
 
   try {
     return await prisma.property.findMany({
@@ -202,16 +235,7 @@ export async function getRelatedProperties(property: {
         id: { not: property.id },
         deletedAt: null,
         status: { not: "DRAFT" },
-        OR: [
-          { city: { equals: property.city, mode: "insensitive" } },
-          { type: property.type as any },
-          {
-            price: {
-              gte: Math.max(0, property.price - budgetSpread),
-              lte: property.price + budgetSpread,
-            },
-          },
-        ],
+        OR: relatedConditions,
       },
       include: propertyInclude,
       orderBy: [{ featured: "desc" }, { createdAt: "desc" }],

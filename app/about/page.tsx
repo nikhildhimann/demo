@@ -2,27 +2,33 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Clock, MapPinned, ShieldCheck, UserRoundCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { siteConfig } from "@/data/siteConfig";
+import { getSiteSettings } from "@/lib/settings";
 
-export const metadata: Metadata = {
-  title: `About ${siteConfig.brandName}`,
-  description: `${siteConfig.brandName} provides professional property management and rental services in Sydney.`,
-  alternates: {
-    canonical: `${process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXTAUTH_URL || ""}/about`,
-  },
-};
+export const dynamic = "force-dynamic";
 
-export default function AboutPage() {
+export async function generateMetadata(): Promise<Metadata> {
+  const settings = await getSiteSettings();
+  return {
+    title: `About ${settings.businessName}`,
+    description: `${settings.businessName} provides professional real estate services.`,
+    alternates: {
+      canonical: `${settings.siteUrl}/about`,
+    },
+  };
+}
+
+export default async function AboutPage() {
+  const settings = await getSiteSettings();
   return (
     <main className="min-h-screen bg-slate-50 pt-28 pb-20 relative z-10">
       <section className="container mx-auto px-4">
         <div className="relative z-10 overflow-hidden rounded-[2rem] border border-slate-200 bg-white text-slate-950 shadow-sm">
           <div className="grid lg:grid-cols-2">
             <div className="p-8 md:p-14 space-y-6">
-              <p className="text-sm font-bold uppercase tracking-widest text-emerald-600">About {siteConfig.brandName}</p>
-              <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight">About {siteConfig.brandName}</h1>
+              <p className="text-sm font-bold uppercase tracking-widest text-emerald-600">About {settings.businessName}</p>
+              <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight">About {settings.businessName}</h1>
               <p className="text-lg text-slate-600 leading-relaxed">
-                TOTTO Living is a Sydney-based property management company focused on providing reliable rental solutions and professional property management services.
+                {settings.defaultSeoDescription || settings.tagline || `${settings.businessName} provides reliable property services for buyers, sellers, tenants, and owners.`}
               </p>
               <p className="text-lg text-slate-600 leading-relaxed">
                 Our mission is to help property owners maximize returns while ensuring tenants have a smooth and comfortable rental experience.
@@ -40,7 +46,7 @@ export default function AboutPage() {
         <div className="grid md:grid-cols-4 gap-6">
             {[
             { icon: ShieldCheck, title: "Professional Management", text: "Expert property management services to maximize your returns." },
-            { icon: MapPinned, title: "Local Market Knowledge", text: "Deep understanding of Sydney property market trends and pricing." },
+            { icon: MapPinned, title: "Local Market Knowledge", text: `Deep understanding of ${settings.city || "local"} property market trends and pricing.` },
             { icon: Clock, title: "Fast Maintenance", text: "Quick response times for all property maintenance needs." },
             { icon: UserRoundCheck, title: "Tenant Screening", text: "Thorough screening process to find reliable tenants." },
           ].map((item) => (

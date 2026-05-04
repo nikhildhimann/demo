@@ -1,4 +1,6 @@
 type ChatbotLeadPayload = {
+  businessName: string;
+  whatsappNumber: string;
   interestType: string;
   location: string;
   budget: string;
@@ -7,11 +9,9 @@ type ChatbotLeadPayload = {
   phone: string;
 };
 
-const WHATSAPP_NUMBER = "919464402648";
-
 export function buildChatbotWhatsAppMessage(payload: ChatbotLeadPayload) {
   return [
-    "Hi Stackron Real Estate, I am interested in properties.",
+    `Hi ${payload.businessName}, I am interested in properties.`,
     "My requirement:",
     `Type: ${payload.interestType}`,
     `Location: ${payload.location}`,
@@ -22,10 +22,8 @@ export function buildChatbotWhatsAppMessage(payload: ChatbotLeadPayload) {
   ].join("\n");
 }
 
-export function buildWhatsAppUrl(message: string) {
-  return `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;
-}
-
-export function getStackronWhatsAppUrl() {
-  return `https://wa.me/${WHATSAPP_NUMBER}`;
+export function buildWhatsAppUrl(whatsappNumber: string, message = "") {
+  const phone = whatsappNumber.replace(/\D/g, "");
+  if (!phone) return "";
+  return `https://wa.me/${phone}${message ? `?text=${encodeURIComponent(message)}` : ""}`;
 }

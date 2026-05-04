@@ -1,0 +1,33 @@
+export type PublicSiteSettings = {
+  businessName: string;
+  tagline: string;
+  phone: string;
+  whatsappNumber: string;
+  email: string;
+  address: string;
+  city: string;
+  state: string;
+  country: string;
+  logoUrl: string;
+  faviconUrl: string;
+  primaryDomain: string;
+  facebookUrl: string;
+  twitterUrl: string;
+  instagramUrl: string;
+  linkedinUrl: string;
+  youtubeUrl: string;
+  defaultSeoTitle: string;
+  defaultSeoDescription: string;
+  currency: string;
+  businessHours: string;
+  displayAddress: string;
+  mapLocation: string;
+  siteUrl: string;
+  socialLinks: {
+    facebook: string;
+    twitter: string;
+    instagram: string;
+    linkedin: string;
+    youtube: string;
+  };
+};

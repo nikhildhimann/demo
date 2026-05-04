@@ -1,18 +1,25 @@
 import type { Metadata } from "next";
 import { InfoPage } from "@/components/InfoPage";
-import { siteConfig } from "@/data/siteConfig";
+import { getSiteSettings } from "@/lib/settings";
 
-export const metadata: Metadata = {
-  title: `FAQ | ${siteConfig.brandName}`,
-  description: `Frequently asked questions about ${siteConfig.brandName} property services.`,
-};
+export const dynamic = "force-dynamic";
 
-export default function FaqPage() {
+export async function generateMetadata(): Promise<Metadata> {
+  const settings = await getSiteSettings();
+  return {
+    title: `FAQ | ${settings.businessName}`,
+    description: `Frequently asked questions about ${settings.businessName} property services.`,
+  };
+}
+
+export default async function FaqPage() {
+  const settings = await getSiteSettings();
   return (
     <InfoPage
       eyebrow="FAQ"
       title="Frequently Asked Questions"
       description="Quick answers for buyers, sellers, tenants, and property owners."
+      settings={settings}
       sections={[
         {
           title: "How quickly will an agent contact me?",

@@ -1,17 +1,21 @@
 import { PropertiesClient } from "@/components/properties/PropertiesClient";
 import { getProperties, toPropertyCardData } from "@/lib/property-data";
-import { siteConfig } from "@/data/siteConfig";
+import { getSiteSettings } from "@/lib/settings";
 import type { Metadata } from "next";
+import { JsonLd } from "@/components/JsonLd";
 
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = {
-  title: `Explore Available Properties | ${siteConfig.brandName}`,
-  description: `Browse verified properties with expert guidance from ${siteConfig.brandName}. Filter by location, budget, type, and bedrooms.`,
-  alternates: {
-    canonical: `${process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXTAUTH_URL || ""}/properties`,
-  },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const settings = await getSiteSettings();
+  return {
+    title: `Explore Available Properties | ${settings.businessName}`,
+    description: `Browse verified properties with expert guidance from ${settings.businessName}. Filter by location, budget, type, and bedrooms.`,
+    alternates: {
+      canonical: `${settings.siteUrl}/properties`,
+    },
+  };
+}
 
 export default async function PropertiesPage({
   searchParams,
@@ -27,6 +31,7 @@ export default async function PropertiesPage({
   const initialFilters = {
     search: typeof params.search === "string" ? params.search : "",
     location: typeof params.location === "string" ? params.location : typeof params.city === "string" ? params.city : "",
+    purpose: typeof params.purpose === "string" ? params.purpose : isLegacyBuyType ? "BUY" : isLegacyRentType ? "RENT" : "",
     type: isLegacyBuyType || isLegacyRentType ? "" : rawType,
     status:
       typeof params.status === "string"
@@ -39,11 +44,39 @@ export default async function PropertiesPage({
     min: typeof params.min === "string" ? params.min : typeof params.minPrice === "string" ? params.minPrice : "",
     max: typeof params.max === "string" ? params.max : typeof params.maxPrice === "string" ? params.maxPrice : "",
     bedrooms: typeof params.bedrooms === "string" ? params.bedrooms : "",
+    bathrooms: typeof params.bathrooms === "string" ? params.bathrooms : "",
     featured: typeof params.featured === "string" ? params.featured : "",
     favorites: typeof params.favorites === "string" ? params.favorites : "",
     sort: typeof params.sort === "string" ? params.sort : "latest",
   };
-  const properties = await getProperties({ ...initialFilters, limit: "100" });
+  const [properties, settings] = await Promise.all([
+    getProperties({ ...initialFilters, limit: "100" }),
+    getSiteSettings(),
+  ]);
 
-  return <PropertiesClient initialProperties={properties.map(toPropertyCardData)} initialFilters={initialFilters} />;
+  const breadcrumbSchema = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      {
+        "@type": "ListItem",
+        position: 1,
+        name: "Home",
+        item: settings.siteUrl,
+      },
+      {
+        "@type": "ListItem",
+        position: 2,
+        name: "Properties",
+        item: `${settings.siteUrl}/properties`,
+      },
+    ],
+  };
+
+  return (
+    <>
+      <JsonLd data={breadcrumbSchema} />
+      <PropertiesClient initialProperties={properties.map(toPropertyCardData)} initialFilters={initialFilters} settings={settings} />
+    </>
+  );
 }

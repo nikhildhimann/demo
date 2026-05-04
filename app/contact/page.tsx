@@ -1,15 +1,21 @@
 import type { Metadata } from "next";
-import { siteConfig } from "@/data/siteConfig";
+import { getSiteSettings } from "@/lib/settings";
 import ContactClient from "@/components/contact/ContactClient";
 
-export const metadata: Metadata = {
-  title: `Contact ${siteConfig.brandName} | Real Estate Enquiries`,
-  description: `Contact ${siteConfig.brandName} for buying, selling, renting, or listing premium real estate.`,
-  alternates: {
-    canonical: `${process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXTAUTH_URL || ""}/contact`,
-  },
-};
+export const dynamic = "force-dynamic";
 
-export default function ContactPage() {
-  return <ContactClient />;
+export async function generateMetadata(): Promise<Metadata> {
+  const settings = await getSiteSettings();
+  return {
+    title: `Contact ${settings.businessName} | Real Estate Enquiries`,
+    description: `Contact ${settings.businessName} for buying, selling, renting, or listing real estate.`,
+    alternates: {
+      canonical: `${settings.siteUrl}/contact`,
+    },
+  };
+}
+
+export default async function ContactPage() {
+  const settings = await getSiteSettings();
+  return <ContactClient settings={settings} />;
 }

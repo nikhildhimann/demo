@@ -1,9 +1,10 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { siteConfig } from "@/data/siteConfig";
 import { getPropertyBySlug, getRelatedProperties, toPropertyCardData } from "@/lib/property-data";
+import { getSiteSettings } from "@/lib/settings";
 import { AgentCard } from "@/components/property/AgentCard";
 import { StickyContactBar } from "@/components/property/StickyContactBar";
+import { PropertyActionButtons } from "@/components/property/PropertyActionButtons";
 import { PremiumPropertyCard } from "@/components/property/PremiumPropertyCard";
 import { MapEmbed } from "@/components/MapEmbed";
 import { Badge } from "@/components/ui/badge";
@@ -11,29 +12,26 @@ import { Bed, Bath, Hash, MapPin, CheckCircle2, CalendarDays, PhoneCall, Share2,
 import { ImageGallery } from "@/components/property/ImageGallery";
 import { EmiCalculator } from "@/components/property/EmiCalculator";
 import { Button } from "@/components/ui/button";
+import { JsonLd } from "@/components/JsonLd";
 
 export const dynamic = "force-dynamic";
 
-const currencyFormatter = new Intl.NumberFormat("en-US", {
-  style: "currency",
-  currency: siteConfig.currency,
-  currencyDisplay: "narrowSymbol",
-  maximumFractionDigits: 0,
-});
-
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
-  const property = await getPropertyBySlug(slug);
+  const [property, settings] = await Promise.all([
+    getPropertyBySlug(slug),
+    getSiteSettings(),
+  ]);
 
   if (!property) {
-    return { title: `Property Not Found | ${siteConfig.brandName}` };
+    return { title: `Property Not Found | ${settings.businessName}` };
   }
 
-  const canonical = `${process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXTAUTH_URL || ""}/properties/${property.slug}`;
+  const canonical = `${settings.siteUrl}/properties/${property.slug}`;
   const image = property.images[0]?.url;
 
   return {
-    title: `${property.title} | ${siteConfig.brandName}`,
+    title: `${property.title} | ${settings.businessName}`,
     description: property.description.slice(0, 155),
     alternates: canonical ? { canonical } : undefined,
     openGraph: {
@@ -54,17 +52,26 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
 export default async function PropertyPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const property = await getPropertyBySlug(slug);
+  const [property, settings] = await Promise.all([
+    getPropertyBySlug(slug),
+    getSiteSettings(),
+  ]);
 
   if (!property) {
     notFound();
   }
   const relatedProperties = await getRelatedProperties(property, 3);
+  const currencyFormatter = new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: settings.currency,
+    currencyDisplay: "narrowSymbol",
+    maximumFractionDigits: 0,
+  });
 
   const agent = {
-    name: siteConfig.brandName,
-    phone: siteConfig.phone,
-    email: siteConfig.email,
+    name: settings.businessName,
+    phone: settings.phone,
+    email: settings.email,
     image: undefined,
   };
 
@@ -75,17 +82,75 @@ export default async function PropertyPage({ params }: { params: Promise<{ slug:
     address: property.address,
     price: property.price,
     phone: agent.phone,
+    // @ts-ignore
+    purpose: property.purpose,
+    type: property.type,
+    // @ts-ignore
+    location: property.location || property.city,
   };
   const displaySize = property.size || property.area;
 
   const mapQuery = [property.address, property.city, property.state, property.country].filter(Boolean).join(", ");
-  const baseUrl = process.env.NEXTAUTH_URL || "";
-  const propertyUrl = `${baseUrl}/properties/${property.slug}`;
-  const whatsappMessage = `Hi, I'm interested in "${property.title}" (${currencyFormatter.format(property.price)}) located at ${mapQuery}. ${propertyUrl}`;
-  const whatsappUrl = `https://wa.me/${agent.phone.replace(/\D/g, "")}?text=${encodeURIComponent(whatsappMessage)}`;
+  
+  const propertySchema = {
+    "@context": "https://schema.org",
+    "@type": "Residence", // Can be SingleFamilyResidence, ApartmentComplex, etc., Residence is a good general one
+    name: property.title,
+    description: property.description,
+    url: `${settings.siteUrl}/properties/${property.slug}`,
+    image: property.images.map(img => img.url),
+    address: {
+      "@type": "PostalAddress",
+      streetAddress: property.address,
+      addressLocality: property.city,
+      addressRegion: property.state,
+      // @ts-ignore
+      postalCode: property.zipCode || property.zip,
+      addressCountry: property.country,
+    },
+    numberOfBedrooms: property.bedrooms,
+    numberOfBathroomsTotal: property.bathrooms,
+    floorSize: {
+      "@type": "QuantitativeValue",
+      value: property.size || property.area,
+      unitCode: "SQFT" // assuming square feet, customize if needed
+    },
+    offers: {
+      "@type": "Offer",
+      price: property.price,
+      priceCurrency: settings.currency,
+      availability: property.status === "AVAILABLE" ? "https://schema.org/InStock" : "https://schema.org/SoldOut",
+    }
+  };
+
+  const breadcrumbSchema = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      {
+        "@type": "ListItem",
+        position: 1,
+        name: "Home",
+        item: settings.siteUrl,
+      },
+      {
+        "@type": "ListItem",
+        position: 2,
+        name: "Properties",
+        item: `${settings.siteUrl}/properties`,
+      },
+      {
+        "@type": "ListItem",
+        position: 3,
+        name: property.title,
+        item: `${settings.siteUrl}/properties/${property.slug}`,
+      },
+    ],
+  };
 
   return (
     <div className="min-h-screen bg-slate-50 pb-24 pt-24 font-sans md:pb-12">
+      <JsonLd data={[propertySchema, breadcrumbSchema]} />
       <main className="container max-w-7xl mx-auto px-4 lg:px-8">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-6 gap-4">
           <div>
@@ -95,6 +160,10 @@ export default async function PropertyPage({ params }: { params: Promise<{ slug:
               </Badge>
               <Badge className="bg-emerald-50 text-emerald-600 border border-emerald-200 px-3 py-1 uppercase tracking-wider text-xs font-bold">
                 {property.type}
+              </Badge>
+              <Badge className="bg-blue-50 text-blue-700 border border-blue-200 px-3 py-1 uppercase tracking-wider text-xs font-bold">
+                {/* @ts-ignore */}
+                {property.purpose}
               </Badge>
             </div>
             <h1 className="text-3xl md:text-5xl font-extrabold text-slate-900 tracking-tight leading-tight mb-2">
@@ -106,14 +175,16 @@ export default async function PropertyPage({ params }: { params: Promise<{ slug:
             </div>
           </div>
 
-          <div className="flex items-center gap-3 w-full md:w-auto">
-            <Button variant="outline" className="h-12 flex-1 rounded-full border-slate-300 bg-white px-6 text-slate-800 shadow-sm hover:bg-slate-100 md:flex-none">
-              <Share2 className="w-5 h-5 mr-2" /> Share
-            </Button>
-            <Button variant="outline" className="h-12 flex-1 rounded-full border-slate-300 bg-white px-6 text-rose-600 shadow-sm hover:bg-rose-50 hover:text-rose-700 md:flex-none">
-              <Heart className="w-5 h-5 mr-2" /> Save
-            </Button>
-          </div>
+          <PropertyActionButtons 
+            property={{
+              id: property.id,
+              title: property.title,
+              slug: property.slug,
+              address: property.address,
+              price: property.price,
+              image: property.images[0]?.url || "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=1200",
+            }} 
+          />
         </div>
 
         <div className="mb-12">
@@ -155,6 +226,33 @@ export default async function PropertyPage({ params }: { params: Promise<{ slug:
             <section className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
               <h2 className="text-2xl font-bold mb-6 text-slate-900">Description</h2>
               <p className="whitespace-pre-line text-lg leading-relaxed text-slate-700">{property.description}</p>
+            </section>
+
+            <section className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
+              <h2 className="text-2xl font-bold mb-6 text-slate-900">Property Features</h2>
+              <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
+                {[
+                  [
+                    "Purpose", 
+                    // @ts-ignore
+                    property.purpose
+                  ],
+                  ["Type", property.type],
+                  [
+                    "Location", 
+                    // @ts-ignore
+                    property.location || property.city
+                  ],
+                  ["City", property.city],
+                  ["Bedrooms", String(property.bedrooms)],
+                  ["Bathrooms", String(property.bathrooms)],
+                ].map(([label, value]) => (
+                  <div key={label} className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                    <p className="text-xs font-bold uppercase tracking-wider text-slate-500">{label}</p>
+                    <p className="mt-1 text-base font-bold text-slate-950">{value || "Not specified"}</p>
+                  </div>
+                ))}
+              </div>
             </section>
 
             <section className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
@@ -208,7 +306,7 @@ export default async function PropertyPage({ params }: { params: Promise<{ slug:
                 </div>
               </div>
 
-              <AgentCard property={propertyForComponents} agent={agent} />
+              <AgentCard property={propertyForComponents} agent={agent} settings={settings} />
             </aside>
           </div>
         </div>
@@ -223,7 +321,7 @@ export default async function PropertyPage({ params }: { params: Promise<{ slug:
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {relatedProperties.map((related) => (
-                <PremiumPropertyCard key={related.id} property={toPropertyCardData(related)} />
+                <PremiumPropertyCard key={related.id} property={toPropertyCardData(related as any)} settings={settings} />
               ))}
             </div>
           </section>
@@ -231,7 +329,7 @@ export default async function PropertyPage({ params }: { params: Promise<{ slug:
       </main>
 
       <div className="lg:hidden">
-        <StickyContactBar property={propertyForComponents} />
+        <StickyContactBar property={propertyForComponents} settings={settings} />
       </div>
     </div>
   );

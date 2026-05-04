@@ -1,107 +1,87 @@
-# Premium Real Estate Next.js Template
+# Real Estate Platform - Package 2 (Growth System)
 
-A client-ready real estate website built with Next.js App Router, TypeScript, Tailwind CSS, Prisma, PostgreSQL, NextAuth, and a rule-based AI Property Assistant.
+A high-performance, SEO-optimized, Next.js 14 real estate platform with an integrated CMS, CRM, and AI Property Assistant. 
 
-## Install
+## Key Features
+- **Public Website:** Stunning UI, responsive design, fast performance (optimized Core Web Vitals).
+- **SEO Engine:** Dynamic meta tags, Open Graph, dynamic XML sitemap, canonical URLs, JSON-LD Schema (RealEstateAgent, Residence, BreadcrumbList), and programmatic SEO landing pages (`/properties/in/[city]/[type]`).
+- **Admin Dashboard:** Secure CMS to manage properties, leads, CRM, and site settings.
+- **Smart Lead Generation:** AI Property Assistant (Chatbot) and dedicated Free Property Appraisal form that route leads with HOT/WARM/COLD priorities.
+- **Email & WhatsApp Integration:** Automated admin notifications via Resend and direct WhatsApp click-to-chat capabilities.
+- **Image Optimization:** Automated Cloudinary integration and Next.js Image optimization.
 
+## Tech Stack
+- Framework: Next.js 14 (App Router)
+- Language: TypeScript
+- Styling: Tailwind CSS & Framer Motion
+- Database: PostgreSQL (via Prisma ORM)
+- Authentication: NextAuth.js
+- File Uploads: Cloudinary
+- Emails: Resend
+
+---
+
+## Setup & Installation
+
+### 1. Prerequisites
+- Node.js (v18.17.0 or higher)
+- PostgreSQL Database (Local or cloud like Neon, Supabase, Render)
+- Cloudinary Account (for image uploads)
+- Resend Account (for email notifications)
+
+### 2. Environment Variables
+Copy the example environment file and fill in your credentials:
 ```bash
-npm install
 cp .env.example .env
 ```
+Fill out `.env` with:
+- `DATABASE_URL`: Your PostgreSQL connection string.
+- `NEXTAUTH_SECRET`: Run `openssl rand -base64 32` to generate a secure secret.
+- `NEXTAUTH_URL`: Your site URL (e.g., `http://localhost:3000`).
+- `NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`: From your Cloudinary dashboard.
+- `RESEND_API_KEY`: From your Resend dashboard.
 
-Update `.env` with your PostgreSQL, auth, email, Cloudinary, and public site URL values.
-
-## Database Setup
-
-Use any PostgreSQL provider, including Neon, Supabase, Railway, or a managed VPS database.
-
+### 3. Install Dependencies
 ```bash
-npm run db:migrate
+npm install
+```
+
+### 4. Database Setup
+Run Prisma migrations to create the tables in your database:
+```bash
+npx prisma migrate dev --name init
+```
+Generate the Prisma Client:
+```bash
 npx prisma generate
 ```
 
-For production:
-
+### 5. Seed Database (Optional)
+To set up your initial admin account and site settings:
 ```bash
-npm run db:deploy
-npx prisma generate
+npm run seed
 ```
 
-## Seed Demo Properties
-
-```bash
-npm run db:seed
-```
-
-Default seed admin:
-
-```text
-Email: admin@gmail.com
-Password: admin123
-```
-
-Change these before using the project for a real client.
-
-## Run Locally
-
+### 6. Run Development Server
 ```bash
 npm run dev
 ```
+Open `http://localhost:3000` to view the website. Access the admin panel at `/login`.
 
-Open `http://localhost:3000`.
+---
 
-## Customize For A New Client
+## Deployment (Vercel)
 
-Edit:
+1. Push your code to a GitHub repository.
+2. Go to [Vercel](https://vercel.com/) and create a new project.
+3. Import your GitHub repository.
+4. Set the Build Command to `npm run build` and Install Command to `npm install`.
+5. Add all Environment Variables from your `.env` file into the Vercel dashboard.
+6. Click **Deploy**.
 
-```text
-data/siteConfig.ts
-```
+*Note: You must use a cloud PostgreSQL database (like Neon or Supabase) for production.*
 
-Update brand name, tagline, logo text, contact details, WhatsApp number, address, map location, hero copy, currency, business hours, social links, and SEO defaults.
-
-Client-specific content should come from:
-
-- `data/siteConfig.ts` for branding/contact/SEO
-- PostgreSQL via Prisma for properties and enquiries
-- Admin pages under `/admin/properties` and `/admin/enquiries`
-
-## Admin Workflow
-
-Log in as an admin and use:
-
-```text
-/admin/properties
-/admin/properties/new
-/admin/enquiries
-```
-
-Admins can create, edit, soft delete, feature, and change property status.
-
-## AI Property Assistant
-
-The floating “AI Property Assistant” is rule-based and does not require a paid AI API. It asks for budget, location, property type, name, and phone, suggests matching listings from `/api/properties`, and saves the lead through `/api/enquiries`.
-
-## Deploy On Vercel With Neon Or Supabase
-
-1. Create a PostgreSQL database on Neon or Supabase.
-2. Copy the connection string into `DATABASE_URL`.
-3. Add all `.env.example` variables in Vercel Project Settings.
-4. Set `NEXTAUTH_URL` and `NEXT_PUBLIC_SITE_URL` to the production domain.
-5. Run migrations:
-
-```bash
-npm run db:deploy
-```
-
-6. Deploy from Vercel.
-
-## Production Checklist
-
-- Replace seed admin credentials.
-- Update `data/siteConfig.ts`.
-- Add real SMTP credentials.
-- Add real Cloudinary credentials for upload flows.
-- Set `NEXT_PUBLIC_SITE_URL`.
-- Verify sitemap at `/sitemap.xml`.
-- Verify robots at `/robots.txt`.
+## Submitting Sitemap
+1. Once deployed, verify your domain in **Google Search Console**.
+2. Go to the Sitemaps tab.
+3. Submit `sitemap.xml` (e.g., `https://yourdomain.com/sitemap.xml`).

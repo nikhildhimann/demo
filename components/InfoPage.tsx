@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { siteConfig } from "@/data/siteConfig";
+import type { PublicSiteSettings } from "@/types/settings";
 
 type InfoPageProps = {
   eyebrow: string;
@@ -11,9 +11,10 @@ type InfoPageProps = {
     title: string;
     body: string;
   }[];
+  settings: PublicSiteSettings;
 };
 
-export function InfoPage({ eyebrow, title, description, sections }: InfoPageProps) {
+export function InfoPage({ eyebrow, title, description, sections, settings }: InfoPageProps) {
   return (
     <main className="min-h-screen bg-slate-50 pt-28 pb-20">
       <section className="container mx-auto px-4">
@@ -36,7 +37,7 @@ export function InfoPage({ eyebrow, title, description, sections }: InfoPageProp
 
         <div className="mt-10 flex flex-col justify-between gap-6 rounded-3xl border border-slate-200 bg-white p-8 text-slate-950 shadow-sm md:flex-row md:items-center md:p-10">
           <div>
-            <h2 className="text-2xl font-bold">Need help from {siteConfig.brandName}?</h2>
+            <h2 className="text-2xl font-bold">Need help from {settings.businessName}?</h2>
             <p className="mt-1 text-slate-600">Our team can answer your questions and guide your next step.</p>
           </div>
           <Button asChild className="rounded-full bg-slate-900 text-white hover:bg-slate-800">
