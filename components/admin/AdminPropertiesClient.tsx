@@ -71,7 +71,7 @@ export function AdminPropertiesClient({ properties }: { properties: AdminPropert
   }, [properties, query, statusFilter]);
 
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-8 min-h-screen">
+    <div className="mx-auto min-h-screen max-w-7xl space-y-6 p-4 sm:p-6 md:space-y-8 md:p-8">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Properties</h1>
@@ -91,12 +91,13 @@ export function AdminPropertiesClient({ properties }: { properties: AdminPropert
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input placeholder="Search properties..." value={query} onChange={(e) => setQuery(e.target.value)} className="pl-9" />
           </div>
-          <div className="flex gap-2">
+          <div className="flex w-full flex-wrap gap-2 md:w-auto md:justify-end">
             {["all", "AVAILABLE", "SOLD", "RENTED", "DRAFT"].map((status) => (
               <Button
                 key={status}
                 variant={statusFilter === status ? "default" : "outline"}
                 size="sm"
+                className="h-8 flex-none px-3 text-xs sm:text-sm"
                 onClick={() => setStatusFilter(status)}
               >
                 {status === "all" ? "All" : status}
@@ -108,7 +109,7 @@ export function AdminPropertiesClient({ properties }: { properties: AdminPropert
         {filtered.length === 0 ? (
           <Card className="p-10 text-center text-muted-foreground">No properties yet. Add your first listing to publish the site.</Card>
         ) : filtered.map((property) => (
-          <Card key={property.id} className="p-4 flex flex-col md:flex-row gap-4 md:items-center">
+          <Card key={property.id} className="flex min-w-0 flex-col gap-4 p-4 md:flex-row md:items-center">
             <div className="relative h-28 w-full md:w-40 rounded-lg overflow-hidden bg-muted shrink-0">
               {property.images[0]?.url ? (
                 <Image src={property.images[0].url} alt={property.title} fill className="object-cover" />
@@ -116,7 +117,7 @@ export function AdminPropertiesClient({ properties }: { properties: AdminPropert
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex flex-wrap items-center gap-2 mb-2">
-                <h2 className="font-bold text-xl truncate">{property.title}</h2>
+                <h2 className="min-w-0 flex-1 basis-full truncate text-xl font-bold sm:basis-auto">{property.title}</h2>
                 {property.featured && <Badge className="bg-yellow-500"><Star className="h-3 w-3 mr-1 fill-current" /> Featured</Badge>}
                 {property.deletedAt && <Badge variant="destructive">Deleted</Badge>}
                 <Badge variant="outline">{property.status}</Badge>
@@ -125,10 +126,11 @@ export function AdminPropertiesClient({ properties }: { properties: AdminPropert
               <p className="text-sm text-muted-foreground">{property.city} · {formatPrice(property.price, siteConfig.currency)}</p>
               <p className="text-xs text-muted-foreground mt-1">/{property.slug}</p>
             </div>
-            <div className="flex flex-wrap gap-2 md:justify-end">
+            <div className="flex w-full min-w-0 flex-wrap gap-2 md:w-auto md:max-w-md md:justify-end">
               <Button
                 variant={property.featured ? "default" : "outline"}
                 size="sm"
+                className="h-8 flex-none px-3 text-xs sm:text-sm"
                 onClick={() => updateQuick(property.id, { featured: !property.featured })}
               >
                 <Star className="mr-2 h-4 w-4" />
@@ -139,24 +141,25 @@ export function AdminPropertiesClient({ properties }: { properties: AdminPropert
                   key={status}
                   variant={property.status === status ? "default" : "outline"}
                   size="sm"
+                  className="h-8 flex-none px-3 text-xs sm:text-sm"
                   onClick={() => updateQuick(property.id, { status })}
                 >
                   {status}
                 </Button>
               ))}
-              <Button variant="outline" size="sm" asChild>
+              <Button variant="outline" size="sm" className="h-8 flex-none px-3 text-xs sm:text-sm" asChild>
                 <Link href={`/properties/${property.slug}`} target="_blank">
                   <ExternalLink className="mr-2 h-4 w-4" />
                   View
                 </Link>
               </Button>
-              <Button variant="outline" size="sm" asChild>
+              <Button variant="outline" size="sm" className="h-8 flex-none px-3 text-xs sm:text-sm" asChild>
                 <Link href={`/admin/properties/${property.id}/edit`}>
                   <Edit className="mr-2 h-4 w-4" />
                   Edit
                 </Link>
               </Button>
-              <Button variant="destructive" size="sm" onClick={() => softDelete(property.id)}>
+              <Button variant="destructive" size="sm" className="h-8 flex-none px-3 text-xs sm:text-sm" onClick={() => softDelete(property.id)}>
                 <Trash2 className="mr-2 h-4 w-4" />
                 Delete
               </Button>
