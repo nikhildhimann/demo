@@ -54,26 +54,63 @@ function getLeadDateWindow() {
   return { now, startOfToday, endOfToday };
 }
 
+function isTransactionStartTimeout(error: unknown) {
+  return error instanceof Error && error.message.includes("Unable to start a transaction in the given time");
+}
+
+async function runPrismaRead<T>(operation: () => Promise<T>, label: string, attempts = 3): Promise<T> {
+  let lastError: unknown;
+
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      return await operation();
+    } catch (error) {
+      lastError = error;
+      if (!isTransactionStartTimeout(error) || attempt === attempts) break;
+      await new Promise((resolve) => setTimeout(resolve, 200 * attempt));
+    }
+  }
+
+  console.error(`[ADMIN_ENQUIRIES_${label}]`, lastError);
+  throw lastError;
+}
+
+async function optionalPrismaRead<T>(operation: () => Promise<T>, fallback: T, label: string): Promise<T> {
+  try {
+    return await runPrismaRead(operation, label);
+  } catch {
+    return fallback;
+  }
+}
+
 async function getLeadStats(where: any, total: number, dates: ReturnType<typeof getLeadDateWindow>) {
   const activeFollowUpStatus = { notIn: ["CONVERTED", "LOST", "SPAM"] };
 
-  const newLeads = await prisma.enquiry.count({ where: { ...where, status: "NEW" } });
-  const hot = await prisma.enquiry.count({ where: { ...where, priority: "HOT" } });
-  const converted = await prisma.enquiry.count({ where: { ...where, status: "CONVERTED" } });
-  const followUpsDue = await prisma.enquiry.count({
-    where: {
-      ...where,
-      followUpDate: { lte: dates.now },
-      status: activeFollowUpStatus,
-    } as any,
-  });
-  const todayFollowUps = await prisma.enquiry.count({
-    where: {
-      ...where,
-      followUpDate: { gte: dates.startOfToday, lte: dates.endOfToday },
-      status: activeFollowUpStatus,
-    } as any,
-  });
+  const newLeads = await optionalPrismaRead(() => prisma.enquiry.count({ where: { ...where, status: "NEW" } }), 0, "COUNT_NEW");
+  const hot = await optionalPrismaRead(() => prisma.enquiry.count({ where: { ...where, priority: "HOT" } }), 0, "COUNT_HOT");
+  const converted = await optionalPrismaRead(() => prisma.enquiry.count({ where: { ...where, status: "CONVERTED" } }), 0, "COUNT_CONVERTED");
+  const followUpsDue = await optionalPrismaRead(
+    () => prisma.enquiry.count({
+      where: {
+        ...where,
+        followUpDate: { lte: dates.now },
+        status: activeFollowUpStatus,
+      } as any,
+    }),
+    0,
+    "COUNT_FOLLOW_UPS_DUE"
+  );
+  const todayFollowUps = await optionalPrismaRead(
+    () => prisma.enquiry.count({
+      where: {
+        ...where,
+        followUpDate: { gte: dates.startOfToday, lte: dates.endOfToday },
+        status: activeFollowUpStatus,
+      } as any,
+    }),
+    0,
+    "COUNT_TODAY_FOLLOW_UPS"
+  );
 
   return {
     total,
@@ -139,44 +176,59 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    const enquiries = await prisma.enquiry.findMany({
-      where,
-      include: {
-        property: {
-          select: { id: true, title: true, slug: true, city: true, location: true, type: true, purpose: true, price: true } as any,
+    const enquiries = await runPrismaRead(
+      () => prisma.enquiry.findMany({
+        where,
+        include: {
+          property: {
+            select: { id: true, title: true, slug: true, city: true, location: true, type: true, purpose: true, price: true } as any,
+          },
         },
-      },
-      orderBy: { createdAt: "desc" },
-      skip,
-      take: limit,
-    });
-    const total = await prisma.enquiry.count({ where });
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limit,
+      }),
+      "FIND_MANY"
+    );
+    const total = await optionalPrismaRead(() => prisma.enquiry.count({ where }), enquiries.length, "COUNT_TOTAL");
     const stats = await getLeadStats(where, total, dates);
-    const sources = await prisma.enquiry.findMany({ distinct: ["source"], select: { source: true }, orderBy: { source: "asc" } });
-    const properties = await prisma.property.findMany({
-      where: { deletedAt: null, status: { not: "DRAFT" } } as any,
-      select: { id: true, title: true, slug: true, city: true, location: true, type: true, purpose: true, price: true } as any,
-      orderBy: { title: "asc" } as any,
-      take: 500,
-    });
-    const todayFollowUps = await prisma.enquiry.findMany({
-      where: {
-        followUpDate: { gte: dates.startOfToday, lte: dates.endOfToday },
-        status: { notIn: ["CONVERTED", "LOST", "SPAM"] },
-      } as any,
-      select: { id: true, name: true, phone: true, followUpDate: true, status: true } as any,
-      orderBy: { followUpDate: "asc" } as any,
-      take: 8,
-    });
-    const overdueFollowUps = await prisma.enquiry.findMany({
-      where: {
-        followUpDate: { lt: dates.startOfToday },
-        status: { notIn: ["CONVERTED", "LOST", "SPAM"] },
-      } as any,
-      select: { id: true, name: true, phone: true, followUpDate: true, status: true } as any,
-      orderBy: { followUpDate: "asc" } as any,
-      take: 8,
-    });
+    const sources = await optionalPrismaRead(() => prisma.enquiry.findMany({ distinct: ["source"], select: { source: true }, orderBy: { source: "asc" } }), [], "FIND_SOURCES");
+    const properties = await optionalPrismaRead(
+      () => prisma.property.findMany({
+        where: { deletedAt: null, status: { not: "DRAFT" } } as any,
+        select: { id: true, title: true, slug: true, city: true, location: true, type: true, purpose: true, price: true } as any,
+        orderBy: { title: "asc" } as any,
+        take: 500,
+      }),
+      [],
+      "FIND_PROPERTIES"
+    );
+    const todayFollowUps = await optionalPrismaRead(
+      () => prisma.enquiry.findMany({
+        where: {
+          followUpDate: { gte: dates.startOfToday, lte: dates.endOfToday },
+          status: { notIn: ["CONVERTED", "LOST", "SPAM"] },
+        } as any,
+        select: { id: true, name: true, phone: true, followUpDate: true, status: true } as any,
+        orderBy: { followUpDate: "asc" } as any,
+        take: 8,
+      }),
+      [],
+      "FIND_TODAY_FOLLOW_UPS"
+    );
+    const overdueFollowUps = await optionalPrismaRead(
+      () => prisma.enquiry.findMany({
+        where: {
+          followUpDate: { lt: dates.startOfToday },
+          status: { notIn: ["CONVERTED", "LOST", "SPAM"] },
+        } as any,
+        select: { id: true, name: true, phone: true, followUpDate: true, status: true } as any,
+        orderBy: { followUpDate: "asc" } as any,
+        take: 8,
+      }),
+      [],
+      "FIND_OVERDUE_FOLLOW_UPS"
+    );
     const settings = await getSiteSettings();
 
     return NextResponse.json({
