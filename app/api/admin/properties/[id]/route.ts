@@ -47,44 +47,41 @@ export async function PATCH(
 
     const data = normalizePropertyInput(body);
 
-    const property = await prisma.$transaction(async (tx) => {
-      await tx.image.deleteMany({ where: { propertyId: id } });
-
-      return tx.property.update({
-        where: { id },
-        data: {
-          title: data.title,
-          slug: data.slug,
-          description: data.description,
-          price: data.price,
-          // @ts-ignore: IDE cache bug
-          purpose: data.purpose as any,
-          status: data.status,
-          type: data.type,
-          bedrooms: data.bedrooms,
-          bathrooms: data.bathrooms,
-          area: data.area,
-          size: data.size,
-          location: data.location || data.city,
-          address: data.address,
-          city: data.city,
-          state: data.state,
-          zip: data.zip,
-          zipCode: data.zipCode,
-          country: data.country,
-          amenities: data.amenities,
-          featured: data.featured,
-          deletedAt: null,
-          images: {
-            create: data.images.map((image, index) => ({
-              url: image.url,
-              publicId: (image as any).publicId || "legacy-image-" + Date.now() + "-" + index,
-              order: image.order || index,
-            })),
-          },
+    const property = await prisma.property.update({
+      where: { id },
+      data: {
+        title: data.title,
+        slug: data.slug,
+        description: data.description,
+        price: data.price,
+        // @ts-ignore: IDE cache bug
+        purpose: data.purpose as any,
+        status: data.status,
+        type: data.type,
+        bedrooms: data.bedrooms,
+        bathrooms: data.bathrooms,
+        area: data.area,
+        size: data.size,
+        location: data.location || data.city,
+        address: data.address,
+        city: data.city,
+        state: data.state,
+        zip: data.zip,
+        zipCode: data.zipCode,
+        country: data.country,
+        amenities: data.amenities,
+        featured: data.featured,
+        deletedAt: null,
+        images: {
+          deleteMany: {},
+          create: data.images.map((image, index) => ({
+            url: image.url,
+            publicId: (image as any).publicId || "legacy-image-" + Date.now() + "-" + index,
+            order: image.order || index,
+          })),
         },
-        include: { images: true },
-      });
+      },
+      include: { images: true },
     });
 
     revalidatePath("/");

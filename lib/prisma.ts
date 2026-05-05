@@ -5,7 +5,7 @@ import pg from "pg";
 const prismaClientSingleton = () => {
   const pool = new pg.Pool({ 
     connectionString: process.env.DATABASE_URL,
-    max: 1 // Vercel lambdas should only use 1 connection each
+    max: 5 // Allow more concurrent queries for dashboard stats
   });
   const adapter = new PrismaPg(pool);
   return new PrismaClient({ adapter });

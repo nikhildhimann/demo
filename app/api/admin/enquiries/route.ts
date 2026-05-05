@@ -44,31 +44,50 @@ function buildLeadWhere(searchParams: URLSearchParams) {
   return where;
 }
 
-async function getLeadStats(where: any) {
+function getLeadDateWindow() {
   const now = new Date();
   const startOfToday = new Date(now);
   startOfToday.setHours(0, 0, 0, 0);
+  const endOfToday = new Date(now);
+  endOfToday.setHours(23, 59, 59, 999);
 
-  return prisma.$transaction([
-    prisma.enquiry.count({ where }),
-    prisma.enquiry.count({ where: { ...where, status: "NEW" } }),
-    prisma.enquiry.count({ where: { ...where, priority: "HOT" } }),
-    prisma.enquiry.count({ where: { ...where, status: "CONVERTED" } }),
-    prisma.enquiry.count({
-      where: {
-        ...where,
-        followUpDate: { lte: now },
-        status: { notIn: ["CONVERTED", "LOST", "SPAM"] },
-      } as any,
-    }),
-    prisma.enquiry.count({
-      where: {
-        ...where,
-        followUpDate: { gte: startOfToday, lte: now },
-        status: { notIn: ["CONVERTED", "LOST", "SPAM"] },
-      } as any,
-    }),
-  ]);
+  return { now, startOfToday, endOfToday };
+}
+
+async function getLeadStats(where: any, total: number, dates: ReturnType<typeof getLeadDateWindow>) {
+  const activeFollowUpStatus = { notIn: ["CONVERTED", "LOST", "SPAM"] };
+
+  const newLeads = await prisma.enquiry.count({ where: { ...where, status: "NEW" } });
+  const hot = await prisma.enquiry.count({ where: { ...where, priority: "HOT" } });
+  const converted = await prisma.enquiry.count({ where: { ...where, status: "CONVERTED" } });
+  const followUpsDue = await prisma.enquiry.count({
+    where: {
+      ...where,
+      followUpDate: { lte: dates.now },
+      status: activeFollowUpStatus,
+    } as any,
+  });
+  const todayFollowUps = await prisma.enquiry.count({
+    where: {
+      ...where,
+      followUpDate: { gte: dates.startOfToday, lte: dates.endOfToday },
+      status: activeFollowUpStatus,
+    } as any,
+  });
+
+  return {
+    total,
+    new: newLeads,
+    hot,
+    converted,
+    followUpsDue,
+    todayFollowUps,
+  };
+}
+
+function adminErrorResponse(error: any, fallback: string) {
+  console.error("[ADMIN_ENQUIRIES_GET]", error);
+  return NextResponse.json({ error: fallback }, { status: 500 });
 }
 
 export async function GET(req: NextRequest) {
@@ -84,6 +103,7 @@ export async function GET(req: NextRequest) {
     const limit = Math.min(parseInt(searchParams.get("limit") || "25"), 100);
     const skip = (page - 1) * limit;
     const where = buildLeadWhere(searchParams);
+    const dates = getLeadDateWindow();
 
     if (exportCsv) {
       const leads = await prisma.enquiry.findMany({
@@ -119,58 +139,49 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    const [enquiries, total, stats, sources, properties, todayFollowUps, overdueFollowUps, settings] = await Promise.all([
-      prisma.enquiry.findMany({
-        where,
-        include: {
-          property: {
-            select: { id: true, title: true, slug: true, city: true, location: true, type: true, purpose: true, price: true } as any,
-          },
+    const enquiries = await prisma.enquiry.findMany({
+      where,
+      include: {
+        property: {
+          select: { id: true, title: true, slug: true, city: true, location: true, type: true, purpose: true, price: true } as any,
         },
-        orderBy: { createdAt: "desc" },
-        skip,
-        take: limit,
-      }),
-      prisma.enquiry.count({ where }),
-      getLeadStats(where),
-      prisma.enquiry.findMany({ distinct: ["source"], select: { source: true }, orderBy: { source: "asc" } }),
-      prisma.property.findMany({
-        where: { deletedAt: null, status: { not: "DRAFT" } } as any,
-        select: { id: true, title: true, slug: true, city: true, location: true, type: true, purpose: true, price: true } as any,
-        orderBy: { title: "asc" } as any,
-        take: 500,
-      }),
-      prisma.enquiry.findMany({
-        where: {
-          followUpDate: { gte: new Date(new Date().setHours(0, 0, 0, 0)), lte: new Date(new Date().setHours(23, 59, 59, 999)) },
-          status: { notIn: ["CONVERTED", "LOST", "SPAM"] },
-        } as any,
-        select: { id: true, name: true, phone: true, followUpDate: true, status: true } as any,
-        orderBy: { followUpDate: "asc" } as any,
-        take: 8,
-      }),
-      prisma.enquiry.findMany({
-        where: {
-          followUpDate: { lt: new Date(new Date().setHours(0, 0, 0, 0)) },
-          status: { notIn: ["CONVERTED", "LOST", "SPAM"] },
-        } as any,
-        select: { id: true, name: true, phone: true, followUpDate: true, status: true } as any,
-        orderBy: { followUpDate: "asc" } as any,
-        take: 8,
-      }),
-      getSiteSettings(),
-    ]);
+      },
+      orderBy: { createdAt: "desc" },
+      skip,
+      take: limit,
+    });
+    const total = await prisma.enquiry.count({ where });
+    const stats = await getLeadStats(where, total, dates);
+    const sources = await prisma.enquiry.findMany({ distinct: ["source"], select: { source: true }, orderBy: { source: "asc" } });
+    const properties = await prisma.property.findMany({
+      where: { deletedAt: null, status: { not: "DRAFT" } } as any,
+      select: { id: true, title: true, slug: true, city: true, location: true, type: true, purpose: true, price: true } as any,
+      orderBy: { title: "asc" } as any,
+      take: 500,
+    });
+    const todayFollowUps = await prisma.enquiry.findMany({
+      where: {
+        followUpDate: { gte: dates.startOfToday, lte: dates.endOfToday },
+        status: { notIn: ["CONVERTED", "LOST", "SPAM"] },
+      } as any,
+      select: { id: true, name: true, phone: true, followUpDate: true, status: true } as any,
+      orderBy: { followUpDate: "asc" } as any,
+      take: 8,
+    });
+    const overdueFollowUps = await prisma.enquiry.findMany({
+      where: {
+        followUpDate: { lt: dates.startOfToday },
+        status: { notIn: ["CONVERTED", "LOST", "SPAM"] },
+      } as any,
+      select: { id: true, name: true, phone: true, followUpDate: true, status: true } as any,
+      orderBy: { followUpDate: "asc" } as any,
+      take: 8,
+    });
+    const settings = await getSiteSettings();
 
     return NextResponse.json({
       enquiries,
-      stats: {
-        total: stats[0],
-        new: stats[1],
-        hot: stats[2],
-        converted: stats[3],
-        followUpsDue: stats[4],
-        todayFollowUps: stats[5],
-      },
+      stats,
       sources: sources.map((item) => item.source).filter(Boolean),
       properties,
       todayFollowUps,
@@ -182,8 +193,7 @@ export async function GET(req: NextRequest) {
       totalCount: total,
     });
   } catch (error: any) {
-    console.error("[ADMIN_ENQUIRIES_GET]", error);
-    return NextResponse.json({ error: error.message || "Internal Server Error" }, { status: 500 });
+    return adminErrorResponse(error, "Unable to load leads right now. Please refresh in a moment.");
   }
 }
 
