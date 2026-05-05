@@ -9,6 +9,8 @@ import { cn } from "@/lib/utils";
 import {
   CalendarClock,
   CheckCircle2,
+  ChevronDown,
+  ChevronUp,
   Download,
   ExternalLink,
   Flame,
@@ -227,6 +229,7 @@ export function EnquiriesClient({ embedded = false }: { embedded?: boolean }) {
   const [draft, setDraft] = useState({ status: "NEW" as LeadStatus, priority: "WARM" as LeadPriority, notes: "", followUpDate: "" });
   const [pagination, setPagination] = useState({ page: 1, totalPages: 1, totalCount: 0 });
   const [filters, setFilters] = useState<LeadFilters>(() => filtersFromSearchParams(searchParams));
+  const [showMobileFilters, setShowMobileFilters] = useState(false);
 
   const fetchLeads = useCallback(async () => {
     setIsLoading(true);
@@ -403,7 +406,7 @@ export function EnquiriesClient({ embedded = false }: { embedded?: boolean }) {
           <h1 className={embedded ? "text-2xl font-bold tracking-tight text-slate-900" : "text-3xl font-bold tracking-tight text-slate-900"}>Leads CRM</h1>
           <p className="text-sm text-muted-foreground mt-1">Manage enquiries, follow-ups, and sales pipeline in one place.</p>
         </div>
-        <Button onClick={exportCsv} variant="outline" className="h-10">
+        <Button onClick={exportCsv} variant="outline" className="h-10 w-full md:w-auto">
           <Download className="mr-2 h-4 w-4" />
           Export CSV
         </Button>
@@ -437,40 +440,67 @@ export function EnquiriesClient({ embedded = false }: { embedded?: boolean }) {
         <FollowUpCard title="Overdue Follow-ups" items={overdueFollowUps} overdue onOpen={openFollowUp} />
       </div>
 
-      <Tabs defaultValue="list" className="space-y-6">
-        <Card className="border shadow-sm rounded-2xl overflow-hidden bg-white">
-          {/* 4. Filters bar (Moved Reset Filters inside) */}
-          <div className="grid gap-3 p-4 grid-cols-2 md:grid-cols-4 lg:grid-cols-7 bg-slate-50/50 border-b">
-            <div className="relative col-span-2 md:col-span-1">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input className="pl-9 h-10 bg-white border-slate-200" placeholder="Search..." value={filters.search} onChange={(event) => updateFilter("search", event.target.value)} />
+      <Tabs defaultValue="list" className="w-full space-y-6">
+        <Card className="w-full border shadow-sm rounded-2xl overflow-hidden bg-white">
+          {/* 4. Filters bar (Desktop/Mobile Responsive) */}
+          <div className="bg-slate-50/50 border-b p-4">
+            <div className="flex flex-col gap-4">
+              {/* Search is always visible */}
+              <div className="flex flex-col md:flex-row gap-3">
+                <div className="relative flex-1">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input className="pl-9 h-10 bg-white border-slate-200" placeholder="Search leads..." value={filters.search} onChange={(event) => updateFilter("search", event.target.value)} />
+                </div>
+                
+                {/* Mobile Filter Toggle Button */}
+                <Button 
+                  variant="outline" 
+                  className="md:hidden h-10 w-full justify-between"
+                  onClick={() => setShowMobileFilters(!showMobileFilters)}
+                >
+                  <span className="flex items-center gap-2">
+                    <MoreHorizontal className="h-4 w-4" />
+                    {showMobileFilters ? "Hide Filters" : "Show Filters"}
+                  </span>
+                  {showMobileFilters ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                </Button>
+              </div>
+
+              {/* Filters Area (Hidden on mobile by default) */}
+              <div className={cn(
+                "grid gap-3 transition-all",
+                "grid-cols-1 md:grid-cols-3 lg:grid-cols-6 xl:grid-cols-7",
+                !showMobileFilters && "hidden md:grid"
+              )}>
+                <FilterSelect value={filters.status} onChange={(value) => updateFilter("status", value)} placeholder="Status" items={statuses.map((status) => [status, statusLabel(status)])} />
+                <FilterSelect value={filters.priority} onChange={(value) => updateFilter("priority", value)} placeholder="Priority" items={priorities.map((priority) => [priority, priority])} />
+                <FilterSelect value={filters.source} onChange={(value) => updateFilter("source", value)} placeholder="Source" items={sources.map((source) => [source, source])} />
+                <FilterSelect value={filters.propertyId} onChange={(value) => updateFilter("propertyId", value)} placeholder="Property" items={properties.map((property) => [property.id, property.title])} />
+                <FilterSelect
+                  value={filters.followUp === "due" ? "due" : filters.date}
+                  onChange={(value) => value === "due" ? updateFilter("followUp", "due") : updateFilter("date", value)}
+                  placeholder="Date"
+                  items={[["today", "Today"], ["week", "7 Days"], ["month", "30 Days"], ["due", "Follow-ups Due"]]}
+                />
+                <Button variant="ghost" size="sm" onClick={resetFilters} className="h-10 text-xs text-muted-foreground hover:text-slate-900 border border-dashed border-slate-300 hover:border-slate-400">
+                  Reset Filters
+                </Button>
+              </div>
             </div>
-            <FilterSelect value={filters.status} onChange={(value) => updateFilter("status", value)} placeholder="Status" items={statuses.map((status) => [status, statusLabel(status)])} />
-            <FilterSelect value={filters.priority} onChange={(value) => updateFilter("priority", value)} placeholder="Priority" items={priorities.map((priority) => [priority, priority])} />
-            <FilterSelect value={filters.source} onChange={(value) => updateFilter("source", value)} placeholder="Source" items={sources.map((source) => [source, source])} />
-            <FilterSelect value={filters.propertyId} onChange={(value) => updateFilter("propertyId", value)} placeholder="Property" items={properties.map((property) => [property.id, property.title])} />
-            <FilterSelect
-              value={filters.followUp === "due" ? "due" : filters.date}
-              onChange={(value) => value === "due" ? updateFilter("followUp", "due") : updateFilter("date", value)}
-              placeholder="Date"
-              items={[["today", "Today"], ["week", "7 Days"], ["month", "30 Days"], ["due", "Follow-ups Due"]]}
-            />
-            <Button variant="ghost" size="sm" onClick={resetFilters} className="h-10 text-xs text-muted-foreground hover:text-slate-900 border border-dashed border-slate-300 hover:border-slate-400">
-              Reset Filters
-            </Button>
           </div>
 
-          {/* 5. View tabs (Now inside the card, horizontal above table) */}
+          {/* 5. View tabs */}
           <div className="px-4 pt-4">
-            <TabsList className="bg-slate-100/50 border p-1 h-11 w-full sm:w-auto">
-              <TabsTrigger value="list" className="px-6 h-9 rounded-md data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm">Lead List</TabsTrigger>
-              <TabsTrigger value="pipeline" className="px-6 h-9 rounded-md data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm">Pipeline View</TabsTrigger>
+            <TabsList className="bg-slate-100/50 border p-1 h-11 w-full md:w-auto flex">
+              <TabsTrigger value="list" className="flex-1 md:flex-none px-6 h-9 rounded-md data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm">Lead List</TabsTrigger>
+              <TabsTrigger value="pipeline" className="flex-1 md:flex-none px-6 h-9 rounded-md data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm">Pipeline View</TabsTrigger>
             </TabsList>
           </div>
 
           {/* 6. Main content area (Lead List) */}
           <TabsContent value="list" className="m-0 focus-visible:outline-none focus-visible:ring-0">
-            <div className="overflow-x-auto">
+            {/* Desktop Table View */}
+            <div className="hidden md:block overflow-x-auto">
               <Table>
                 <TableHeader className="bg-white">
                   <TableRow className="hover:bg-transparent border-b">
@@ -539,18 +569,91 @@ export function EnquiriesClient({ embedded = false }: { embedded?: boolean }) {
                 </TableBody>
               </Table>
             </div>
+
+            {/* Mobile Card View */}
+            <div className="md:hidden p-4 space-y-4">
+              {isLoading ? Array.from({ length: 4 }).map((_, index) => (
+                <Card key={index} className="p-4 space-y-3">
+                  <Skeleton className="h-5 w-3/4" />
+                  <Skeleton className="h-4 w-1/2" />
+                  <div className="flex gap-2">
+                    <Skeleton className="h-6 w-20" />
+                    <Skeleton className="h-6 w-20" />
+                  </div>
+                </Card>
+              )) : leads.length === 0 ? (
+                <div className="text-center py-10 text-muted-foreground">{emptyLeadsMessage}</div>
+              ) : leads.map((lead) => (
+                <Card key={lead.id} className="p-4 space-y-4 hover:border-primary/50 transition-colors" onClick={() => openLead(lead)}>
+                  <div className="flex justify-between items-start">
+                    <div className="space-y-1 min-w-0 flex-1">
+                      <h3 className="font-bold text-slate-900 truncate">{lead.name}</h3>
+                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <Phone className="h-3 w-3" />
+                        <span>{lead.phone}</span>
+                      </div>
+                      {lead.email && (
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <Mail className="h-3 w-3" />
+                          <span className="truncate">{lead.email}</span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex flex-col items-end gap-2 ml-4">
+                      {getStatusBadge(lead.status)}
+                      {getPriorityBadge(lead.priority)}
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-50 rounded-lg p-3">
+                    <p className="text-xs font-bold text-slate-900 truncate">{lead.property?.title || lead.preferredType || "General enquiry"}</p>
+                    <p className="text-[10px] text-muted-foreground mt-1">{lead.source} {lead.budget ? `· ${lead.budget}` : ""}</p>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+                    <div className="flex items-center gap-2">
+                      <CalendarClock className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span className="text-xs text-slate-600">
+                        {lead.followUpDate ? format(new Date(lead.followUpDate), "MMM dd, HH:mm") : "Follow-up not set"}
+                      </span>
+                    </div>
+                    
+                    <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                      <Button variant="outline" size="icon" className="h-8 w-8" asChild>
+                        <a href={whatsappUrl(lead, businessName)} target="_blank" rel="noreferrer">
+                          <MessageCircle className="h-4 w-4 text-emerald-600" />
+                        </a>
+                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="outline" size="icon" className="h-8 w-8">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => openLead(lead)}>View Details</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => deleteLead(lead.id)} className="text-destructive">Delete</DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
             
             {/* 7. Pagination area */}
-            <div className="flex items-center justify-between p-4 bg-slate-50 border-t">
-              <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Showing {leads.length} of {pagination.totalCount} leads</p>
-              <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" className="h-8 rounded-lg bg-white" disabled={pagination.page <= 1} onClick={() => updateFilter("page", String(pagination.page - 1))}>Previous</Button>
-                <div className="flex items-center gap-1 px-2">
-                   <span className="text-xs font-bold">{pagination.page}</span>
+            <div className="flex flex-col md:flex-row items-center justify-between p-4 bg-slate-50 border-t gap-4">
+              <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                Showing {leads.length > 0 ? (Number(filters.page) - 1) * Number(filters.limit) + 1 : 0}–{Math.min(Number(filters.page) * Number(filters.limit), pagination.totalCount)} of {pagination.totalCount} leads
+              </p>
+              <div className="flex items-center gap-2 w-full md:w-auto">
+                <Button variant="outline" size="sm" className="h-9 flex-1 md:flex-none rounded-lg bg-white" disabled={pagination.page <= 1} onClick={() => updateFilter("page", String(pagination.page - 1))}>Previous</Button>
+                <div className="flex items-center gap-1 px-4 bg-white h-9 rounded-lg border">
+                   <span className="text-xs font-bold text-slate-900">{pagination.page}</span>
                    <span className="text-xs text-muted-foreground">/</span>
                    <span className="text-xs text-muted-foreground">{pagination.totalPages}</span>
                 </div>
-                <Button variant="outline" size="sm" className="h-8 rounded-lg bg-white" disabled={pagination.page >= pagination.totalPages} onClick={() => updateFilter("page", String(pagination.page + 1))}>Next</Button>
+                <Button variant="outline" size="sm" className="h-9 flex-1 md:flex-none rounded-lg bg-white" disabled={pagination.page >= pagination.totalPages} onClick={() => updateFilter("page", String(pagination.page + 1))}>Next</Button>
               </div>
             </div>
           </TabsContent>
@@ -559,9 +662,9 @@ export function EnquiriesClient({ embedded = false }: { embedded?: boolean }) {
           <TabsContent value="pipeline" className="m-0 p-4 focus-visible:outline-none focus-visible:ring-0">
             <div className="flex gap-4 overflow-x-auto pb-4">
               {pipeline.map((column) => (
-                <div key={column.status} className="flex-shrink-0 w-80 flex flex-col gap-3">
+                <div key={column.status} className="flex-shrink-0 w-72 md:w-80 flex flex-col gap-3">
                   <div className="flex items-center justify-between bg-white p-3 rounded-xl border shadow-sm">
-                     <h3 className="font-bold text-sm text-slate-900">{statusLabel(column.status)}</h3>
+                     <h3 className="font-bold text-xs md:text-sm text-slate-900">{statusLabel(column.status)}</h3>
                      <Badge variant="secondary" className="bg-slate-100 text-slate-900 border-none">{column.leads.length}</Badge>
                   </div>
                   <div className="flex flex-col gap-3 min-h-[500px] bg-slate-100/30 p-2 rounded-2xl border border-slate-200">
