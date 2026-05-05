@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { format } from "date-fns";
 import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
@@ -91,9 +92,34 @@ type PropertyOption = {
   price: number;
 };
 
+type LeadFilters = {
+  search: string;
+  status: string;
+  priority: string;
+  source: string;
+  propertyId: string;
+  date: string;
+  followUp: string;
+  page: string;
+  limit: string;
+};
+
+type StatCardId = "total" | "new" | "hot" | "due" | "converted" | "lost";
+
 const statuses: LeadStatus[] = ["NEW", "CONTACTED", "INTERESTED", "SITE_VISIT", "NEGOTIATION", "CONVERTED", "LOST", "SPAM"];
 const pipelineStatuses: LeadStatus[] = ["NEW", "CONTACTED", "INTERESTED", "SITE_VISIT", "NEGOTIATION", "CONVERTED", "LOST"];
 const priorities: LeadPriority[] = ["HOT", "WARM", "COLD"];
+const defaultFilters: LeadFilters = {
+  search: "",
+  status: "all",
+  priority: "all",
+  source: "all",
+  propertyId: "all",
+  date: "all",
+  followUp: "all",
+  page: "1",
+  limit: "25",
+};
 
 function statusLabel(status: string) {
   return status.replace("_", " ").toLowerCase().replace(/\b\w/g, (char) => char.toUpperCase());
@@ -148,17 +174,47 @@ function whatsappUrl(lead: Lead, businessName: string) {
   return phone ? `https://wa.me/${phone}?text=${encodeURIComponent(buildWhatsAppMessage(lead, businessName))}` : "";
 }
 
-function buildQuery(filters: Record<string, string>) {
+function filtersFromSearchParams(searchParams: URLSearchParams): LeadFilters {
+  return {
+    ...defaultFilters,
+    search: searchParams.get("search") || defaultFilters.search,
+    status: searchParams.get("status") || defaultFilters.status,
+    priority: searchParams.get("priority") || defaultFilters.priority,
+    source: searchParams.get("source") || defaultFilters.source,
+    propertyId: searchParams.get("propertyId") || defaultFilters.propertyId,
+    date: searchParams.get("date") || defaultFilters.date,
+    followUp: searchParams.get("followUp") || defaultFilters.followUp,
+    page: searchParams.get("page") || defaultFilters.page,
+    limit: searchParams.get("limit") || defaultFilters.limit,
+  };
+}
+
+function buildQuery(filters: LeadFilters) {
   const params = new URLSearchParams();
   Object.entries(filters).forEach(([key, value]) => {
-    if (value && value !== "all") params.set(key, value);
+    if (!value || value === "all") return;
+    if (key === "page" && value === defaultFilters.page) return;
+    if (key === "limit" && value === defaultFilters.limit) return;
+    params.set(key, value);
   });
   return params;
 }
 
+function statFromFilters(filters: LeadFilters): StatCardId | null {
+  if (filters.followUp === "due") return "due";
+  if (filters.status === "NEW") return "new";
+  if (filters.status === "CONVERTED") return "converted";
+  if (filters.status === "LOST") return "lost";
+  if (filters.priority === "HOT") return "hot";
+  return null;
+}
+
 export function EnquiriesClient({ embedded = false }: { embedded?: boolean }) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [leads, setLeads] = useState<Lead[]>([]);
-  const [stats, setStats] = useState({ total: 0, new: 0, hot: 0, followUpsDue: 0, converted: 0, todayFollowUps: 0 });
+  const [stats, setStats] = useState({ total: 0, new: 0, hot: 0, followUpsDue: 0, converted: 0, lost: 0, todayFollowUps: 0 });
   const [sources, setSources] = useState<string[]>([]);
   const [properties, setProperties] = useState<PropertyOption[]>([]);
   const [todayFollowUps, setTodayFollowUps] = useState<FollowUp[]>([]);
@@ -167,18 +223,10 @@ export function EnquiriesClient({ embedded = false }: { embedded?: boolean }) {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+  const [activeStat, setActiveStat] = useState<StatCardId | null>(() => statFromFilters(filtersFromSearchParams(searchParams)));
   const [draft, setDraft] = useState({ status: "NEW" as LeadStatus, priority: "WARM" as LeadPriority, notes: "", followUpDate: "" });
   const [pagination, setPagination] = useState({ page: 1, totalPages: 1, totalCount: 0 });
-  const [filters, setFilters] = useState({
-    search: "",
-    status: "all",
-    priority: "all",
-    source: "all",
-    propertyId: "all",
-    date: "all",
-    page: "1",
-    limit: "25",
-  });
+  const [filters, setFilters] = useState<LeadFilters>(() => filtersFromSearchParams(searchParams));
 
   const fetchLeads = useCallback(async () => {
     setIsLoading(true);
@@ -189,7 +237,7 @@ export function EnquiriesClient({ embedded = false }: { embedded?: boolean }) {
       if (!response.ok) throw new Error(data?.error || "Unable to load leads");
 
       setLeads(data.enquiries || []);
-      setStats(data.stats || { total: 0, new: 0, hot: 0, followUpsDue: 0, converted: 0, todayFollowUps: 0 });
+      setStats(data.stats || { total: 0, new: 0, hot: 0, followUpsDue: 0, converted: 0, lost: 0, todayFollowUps: 0 });
       setSources(data.sources || []);
       setProperties(data.properties || []);
       setTodayFollowUps(data.todayFollowUps || []);
@@ -207,8 +255,43 @@ export function EnquiriesClient({ embedded = false }: { embedded?: boolean }) {
     fetchLeads();
   }, [fetchLeads]);
 
-  const updateFilter = (key: keyof typeof filters, value: string) => {
-    setFilters((prev) => ({ ...prev, [key]: value, page: key === "page" ? value : "1" }));
+  useEffect(() => {
+    const nextFilters = filtersFromSearchParams(searchParams);
+    setFilters((prev) => (JSON.stringify(prev) === JSON.stringify(nextFilters) ? prev : nextFilters));
+    setActiveStat(statFromFilters(nextFilters));
+  }, [searchParams]);
+
+  const applyFilters = (nextFilters: LeadFilters, nextActiveStat: StatCardId | null = statFromFilters(nextFilters)) => {
+    setFilters(nextFilters);
+    setActiveStat(nextActiveStat);
+    const params = buildQuery(nextFilters);
+    router.replace(params.toString() ? `${pathname}?${params.toString()}` : pathname, { scroll: false });
+  };
+
+  const updateFilter = (key: keyof LeadFilters, value: string) => {
+    applyFilters({
+      ...filters,
+      [key]: value,
+      page: key === "page" ? value : "1",
+      ...(key === "date" ? { followUp: "all" } : {}),
+      ...(key === "followUp" ? { date: "all" } : {}),
+    });
+  };
+
+  const resetFilters = () => {
+    applyFilters(defaultFilters, null);
+  };
+
+  const applyStatFilter = (stat: StatCardId) => {
+    const base = { ...defaultFilters };
+
+    if (stat === "new") base.status = "NEW";
+    if (stat === "hot") base.priority = "HOT";
+    if (stat === "due") base.followUp = "due";
+    if (stat === "converted") base.status = "CONVERTED";
+    if (stat === "lost") base.status = "LOST";
+
+    applyFilters(base, stat);
   };
 
   const openLead = (lead: Lead) => {
@@ -303,16 +386,17 @@ export function EnquiriesClient({ embedded = false }: { embedded?: boolean }) {
   }, [properties, selectedLead]);
 
   const statCards = [
-    { title: "Total Leads", value: stats.total, icon: Target, color: "text-slate-700", status: "all" },
-    { title: "New Leads", value: stats.new, icon: Inbox, color: "text-yellow-600", status: "NEW" },
-    { title: "Hot Leads", value: stats.hot, icon: Flame, color: "text-red-600", priority: "HOT" },
-    { title: "Follow-ups Due", value: stats.followUpsDue, icon: CalendarClock, color: "text-blue-600", date: "today" },
-    { title: "Converted", value: stats.converted, icon: CheckCircle2, color: "text-green-600", status: "CONVERTED" },
-    { title: "Lost Leads", value: leads.filter(l => l.status === 'LOST').length, icon: Trash2, color: "text-slate-500", status: "LOST" },
+    { id: "total" as const, title: "Total Leads", value: stats.total, icon: Target, color: "text-slate-700", active: activeStat === "total" },
+    { id: "new" as const, title: "New Leads", value: stats.new, icon: Inbox, color: "text-yellow-600", active: activeStat === "new" },
+    { id: "hot" as const, title: "Hot Leads", value: stats.hot, icon: Flame, color: "text-red-600", active: activeStat === "hot" },
+    { id: "due" as const, title: "Follow-ups Due", value: stats.followUpsDue, icon: CalendarClock, color: "text-blue-600", active: activeStat === "due" },
+    { id: "converted" as const, title: "Converted", value: stats.converted, icon: CheckCircle2, color: "text-green-600", active: activeStat === "converted" },
+    { id: "lost" as const, title: "Lost Leads", value: stats.lost, icon: Trash2, color: "text-slate-500", active: activeStat === "lost" },
   ];
+  const emptyLeadsMessage = filters.followUp === "due" ? "No follow-ups are due." : "No leads found.";
 
   return (
-    <div id={embedded ? "leads" : undefined} className={embedded ? "space-y-6" : "mx-auto min-h-screen max-w-6xl space-y-6 p-4 lg:p-8 bg-slate-50/50"}>
+    <div id={embedded ? "leads" : undefined} className={embedded ? "space-y-6" : "w-full min-h-screen space-y-6 p-4 lg:p-8 bg-slate-50/50"}>
       {/* 1. Header card */}
       <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center bg-white p-6 rounded-2xl border shadow-sm">
         <div>
@@ -330,12 +414,11 @@ export function EnquiriesClient({ embedded = false }: { embedded?: boolean }) {
         {statCards.map((item) => (
           <button
             key={item.title}
-            onClick={() => {
-              if (item.status) updateFilter("status", item.status);
-              if (item.priority) updateFilter("priority", item.priority);
-              if (item.date) updateFilter("date", item.date);
-            }}
-            className="flex flex-col items-start p-4 bg-white rounded-2xl border shadow-sm hover:border-primary/50 hover:shadow-md transition-all text-left group"
+            onClick={() => applyStatFilter(item.id)}
+            className={cn(
+              "flex cursor-pointer flex-col items-start p-4 bg-white rounded-2xl border shadow-sm hover:border-primary/50 hover:shadow-md transition-all text-left group",
+              item.active && "border-primary/60 bg-primary/5 ring-1 ring-primary/20"
+            )}
           >
             <div className={cn("p-2 rounded-xl bg-slate-50 group-hover:bg-white transition-colors", item.color)}>
               <item.icon className="h-5 w-5" />
@@ -366,17 +449,13 @@ export function EnquiriesClient({ embedded = false }: { embedded?: boolean }) {
             <FilterSelect value={filters.priority} onChange={(value) => updateFilter("priority", value)} placeholder="Priority" items={priorities.map((priority) => [priority, priority])} />
             <FilterSelect value={filters.source} onChange={(value) => updateFilter("source", value)} placeholder="Source" items={sources.map((source) => [source, source])} />
             <FilterSelect value={filters.propertyId} onChange={(value) => updateFilter("propertyId", value)} placeholder="Property" items={properties.map((property) => [property.id, property.title])} />
-            <FilterSelect value={filters.date} onChange={(value) => updateFilter("date", value)} placeholder="Date" items={[["today", "Today"], ["week", "7 Days"], ["month", "30 Days"]]} />
-            <Button variant="ghost" size="sm" onClick={() => setFilters({
-              search: "",
-              status: "all",
-              priority: "all",
-              source: "all",
-              propertyId: "all",
-              date: "all",
-              page: "1",
-              limit: "25",
-            })} className="h-10 text-xs text-muted-foreground hover:text-slate-900 border border-dashed border-slate-300 hover:border-slate-400">
+            <FilterSelect
+              value={filters.followUp === "due" ? "due" : filters.date}
+              onChange={(value) => value === "due" ? updateFilter("followUp", "due") : updateFilter("date", value)}
+              placeholder="Date"
+              items={[["today", "Today"], ["week", "7 Days"], ["month", "30 Days"], ["due", "Follow-ups Due"]]}
+            />
+            <Button variant="ghost" size="sm" onClick={resetFilters} className="h-10 text-xs text-muted-foreground hover:text-slate-900 border border-dashed border-slate-300 hover:border-slate-400">
               Reset Filters
             </Button>
           </div>
@@ -416,7 +495,7 @@ export function EnquiriesClient({ embedded = false }: { embedded?: boolean }) {
                       <TableCell><Skeleton className="ml-auto h-8 w-8" /></TableCell>
                     </TableRow>
                   )) : leads.length === 0 ? (
-                    <TableRow><TableCell colSpan={7} className="h-40 text-center text-muted-foreground bg-white">No leads found.</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={7} className="h-40 text-center text-muted-foreground bg-white">{emptyLeadsMessage}</TableCell></TableRow>
                   ) : leads.map((lead) => (
                     <TableRow key={lead.id} className="cursor-pointer hover:bg-slate-50 transition-colors group" onClick={() => openLead(lead)}>
                       <TableCell>

@@ -16,6 +16,7 @@ function buildLeadWhere(searchParams: URLSearchParams) {
   const source = searchParams.get("source");
   const propertyId = searchParams.get("propertyId");
   const date = searchParams.get("date");
+  const followUp = searchParams.get("followUp");
   const search = searchParams.get("search");
   const where: any = {};
 
@@ -23,6 +24,10 @@ function buildLeadWhere(searchParams: URLSearchParams) {
   if (priority && priority !== "all") where.priority = priority;
   if (source && source !== "all") where.source = source;
   if (propertyId && propertyId !== "all") where.propertyId = propertyId;
+  if (followUp === "due") {
+    where.followUpDate = { lte: new Date() };
+    where.status = { notIn: ["CONVERTED", "LOST", "SPAM"] };
+  }
   if (date && date !== "all") {
     const now = new Date();
     const start = new Date(now);
@@ -83,12 +88,14 @@ async function optionalPrismaRead<T>(operation: () => Promise<T>, fallback: T, l
   }
 }
 
-async function getLeadStats(where: any, total: number, dates: ReturnType<typeof getLeadDateWindow>) {
+async function getLeadStats(where: any, dates: ReturnType<typeof getLeadDateWindow>) {
   const activeFollowUpStatus = { notIn: ["CONVERTED", "LOST", "SPAM"] };
 
+  const total = await optionalPrismaRead(() => prisma.enquiry.count({ where }), 0, "COUNT_STATS_TOTAL");
   const newLeads = await optionalPrismaRead(() => prisma.enquiry.count({ where: { ...where, status: "NEW" } }), 0, "COUNT_NEW");
   const hot = await optionalPrismaRead(() => prisma.enquiry.count({ where: { ...where, priority: "HOT" } }), 0, "COUNT_HOT");
   const converted = await optionalPrismaRead(() => prisma.enquiry.count({ where: { ...where, status: "CONVERTED" } }), 0, "COUNT_CONVERTED");
+  const lost = await optionalPrismaRead(() => prisma.enquiry.count({ where: { ...where, status: "LOST" } }), 0, "COUNT_LOST");
   const followUpsDue = await optionalPrismaRead(
     () => prisma.enquiry.count({
       where: {
@@ -117,6 +124,7 @@ async function getLeadStats(where: any, total: number, dates: ReturnType<typeof 
     new: newLeads,
     hot,
     converted,
+    lost,
     followUpsDue,
     todayFollowUps,
   };
@@ -191,7 +199,7 @@ export async function GET(req: NextRequest) {
       "FIND_MANY"
     );
     const total = await optionalPrismaRead(() => prisma.enquiry.count({ where }), enquiries.length, "COUNT_TOTAL");
-    const stats = await getLeadStats(where, total, dates);
+    const stats = await getLeadStats({}, dates);
     const sources = await optionalPrismaRead(() => prisma.enquiry.findMany({ distinct: ["source"], select: { source: true }, orderBy: { source: "asc" } }), [], "FIND_SOURCES");
     const properties = await optionalPrismaRead(
       () => prisma.property.findMany({

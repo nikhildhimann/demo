@@ -92,7 +92,7 @@ export function AdminPropertiesClient({ properties, settings }: { properties: Ad
   }, [properties, query, statusFilter]);
 
   return (
-    <div className="mx-auto min-h-screen max-w-7xl space-y-6 p-4 sm:p-6 md:space-y-8 md:p-8">
+    <div className="w-full min-h-screen space-y-6 p-4 sm:p-6 md:space-y-8 md:p-8">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Properties</h1>
