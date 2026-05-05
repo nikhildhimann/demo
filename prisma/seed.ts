@@ -13,44 +13,20 @@ import bcrypt from "bcryptjs";
 import { PrismaPg } from "@prisma/adapter-pg";
 import pg from "pg";
 
-async function testConnection() {
-  const connectionString = process.env.DIRECT_URL || process.env.DATABASE_URL;
-  if (!connectionString) {
-    console.error("Missing DIRECT_URL or DATABASE_URL in environment");
-    return false;
-  }
-
-  const pool = new pg.Pool({ connectionString });
-
-  try {
-    const result = await pool.query("SELECT NOW()");
-    console.log("Database connection successful:", result.rows[0]);
-    await pool.end();
-    return true;
-  } catch (error) {
-    console.error("Database connection failed:", error instanceof Error ? error.message : String(error));
-    await pool.end();
-    return false;
-  }
-}
-
 const prismaConnectionString = process.env.DATABASE_URL || process.env.DIRECT_URL;
 if (!prismaConnectionString) {
   throw new Error("Missing DATABASE_URL or DIRECT_URL in environment");
 }
 
+const pool = new pg.Pool({ connectionString: prismaConnectionString, max: 1 });
+
 const prisma = new PrismaClient({
-  adapter: new PrismaPg(new pg.Pool({ connectionString: prismaConnectionString })),
+  adapter: new PrismaPg(pool),
   log: ["warn", "error"],
 });
 
 async function main() {
-  console.log("Testing database connection...");
-  const connectionOk = await testConnection();
-  if (!connectionOk) {
-    console.error("Cannot proceed with seeding due to database connection failure");
-    process.exit(1);
-  }
+  console.log("Starting seeding...");
 
   const hashedPassword = await bcrypt.hash(process.env.ADMIN_PASSWORD || "admin123", 10);
 
