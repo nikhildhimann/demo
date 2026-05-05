@@ -48,7 +48,7 @@ export function HomeClient({ featuredProperties, settings }: { featuredPropertie
 
   return (
     <div className="flex flex-col min-h-screen">
-      <section className="relative min-h-[90dvh] flex items-center justify-center text-white pt-20">
+      <section className="relative min-h-[90dvh] flex items-center justify-center text-white pt-12 md:pt-20">
         <div className="absolute inset-0 z-0 overflow-hidden">
           <motion.img
             initial={{ scale: 1.1 }}
@@ -61,7 +61,7 @@ export function HomeClient({ featuredProperties, settings }: { featuredPropertie
           <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/40 to-background/90" />
         </div>
 
-        <div className="relative z-10 w-full max-w-7xl mx-auto px-4 mt-16 md:mt-0">
+        <div className="relative z-10 w-full max-w-7xl mx-auto px-4 mt-8 md:mt-0">
           <div className="max-w-3xl space-y-8">
             <motion.div initial="hidden" animate="visible" variants={staggerContainer} className="space-y-6">
               <motion.div variants={fadeIn} className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-sm font-medium">
