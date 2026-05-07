@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { PropertyCardData } from "@/lib/property-data";
 import type { PublicSiteSettings } from "@/types/settings";
 import { PremiumPropertyCard } from "@/components/property/PremiumPropertyCard";
@@ -29,12 +29,95 @@ const staggerContainer = {
 export function HomeClient({ featuredProperties, settings }: { featuredProperties: PropertyCardData[]; settings: PublicSiteSettings }) {
   const router = useRouter();
   const [location, setLocation] = useState("");
+  const [locationSuggestions, setLocationSuggestions] = useState<string[]>([]);
+  const [showLocationSuggestions, setShowLocationSuggestions] = useState(false);
+  const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(-1);
   const [type, setType] = useState("");
   const [minBudget, setMinBudget] = useState("");
   const [maxBudget, setMaxBudget] = useState("");
+  const locationWrapperRef = useRef<HTMLDivElement>(null);
   const whatsappHref = settings.whatsappNumber
     ? `https://wa.me/${settings.whatsappNumber}?text=${encodeURIComponent("Hi, I am interested in your real estate services.")}`
     : "";
+
+  useEffect(() => {
+    const query = location.trim();
+
+    if (query.length < 2) {
+      setLocationSuggestions([]);
+      setShowLocationSuggestions(false);
+      setActiveSuggestionIndex(-1);
+      return;
+    }
+
+    const controller = new AbortController();
+    const timer = window.setTimeout(async () => {
+      try {
+        const response = await fetch(`/api/locations/suggest?q=${encodeURIComponent(query)}`, {
+          signal: controller.signal,
+        });
+        const data = await response.json();
+        const suggestions = Array.isArray(data) ? data.filter((item) => typeof item === "string") : [];
+        setLocationSuggestions(suggestions);
+        setShowLocationSuggestions(suggestions.length > 0);
+        setActiveSuggestionIndex(suggestions.length > 0 ? 0 : -1);
+      } catch (error: any) {
+        if (error.name !== "AbortError") {
+          setLocationSuggestions([]);
+          setShowLocationSuggestions(false);
+          setActiveSuggestionIndex(-1);
+        }
+      }
+    }, 300);
+
+    return () => {
+      controller.abort();
+      window.clearTimeout(timer);
+    };
+  }, [location]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (!locationWrapperRef.current?.contains(event.target as Node)) {
+        setShowLocationSuggestions(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const selectLocationSuggestion = (suggestion: string) => {
+    setLocation(suggestion);
+    setLocationSuggestions([]);
+    setShowLocationSuggestions(false);
+    setActiveSuggestionIndex(-1);
+  };
+
+  const handleLocationKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === "Escape") {
+      setShowLocationSuggestions(false);
+      setActiveSuggestionIndex(-1);
+      return;
+    }
+
+    if (!showLocationSuggestions || locationSuggestions.length === 0) return;
+
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setActiveSuggestionIndex((current) => (current + 1) % locationSuggestions.length);
+    }
+
+    if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setActiveSuggestionIndex((current) => (current <= 0 ? locationSuggestions.length - 1 : current - 1));
+    }
+
+    if (event.key === "Enter" && activeSuggestionIndex >= 0) {
+      event.preventDefault();
+      selectLocationSuggestion(locationSuggestions[activeSuggestionIndex]);
+    }
+  };
 
   const handleSearch = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -86,15 +169,37 @@ export function HomeClient({ featuredProperties, settings }: { featuredPropertie
               onSubmit={handleSearch}
             >
               <div className="flex flex-col md:flex-row gap-3">
-                <div className="flex-[1.5] flex items-center px-4 bg-slate-50 rounded-xl border border-slate-100 hover:border-slate-300 focus-within:border-slate-300 focus-within:ring-1 focus-within:ring-slate-300 transition-all">
-                  <MapPin className="w-5 h-5 text-slate-400 mr-2 shrink-0" />
-                  <input
-                    type="text"
-                    placeholder="Location"
-                    value={location}
-                    onChange={(event) => setLocation(event.target.value)}
-                    className="w-full min-w-0 border-none bg-transparent py-3 text-slate-950 outline-none placeholder:text-slate-500 focus:ring-0 md:py-4"
-                  />
+                <div ref={locationWrapperRef} className="relative flex-[1.5]">
+                  <div className="flex items-center px-4 bg-slate-50 rounded-xl border border-slate-100 hover:border-slate-300 focus-within:border-slate-300 focus-within:ring-1 focus-within:ring-slate-300 transition-all">
+                    <MapPin className="w-5 h-5 text-slate-400 mr-2 shrink-0" />
+                    <input
+                      type="text"
+                      placeholder="Location"
+                      value={location}
+                      onChange={(event) => setLocation(event.target.value)}
+                      onFocus={() => setShowLocationSuggestions(locationSuggestions.length > 0)}
+                      onKeyDown={handleLocationKeyDown}
+                      className="w-full min-w-0 border-none bg-transparent py-3 text-slate-950 outline-none placeholder:text-slate-500 focus:ring-0 md:py-4"
+                      autoComplete="off"
+                    />
+                  </div>
+
+                  {showLocationSuggestions && locationSuggestions.length > 0 && (
+                    <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-50 overflow-hidden rounded-xl border border-slate-200 bg-white py-1 text-slate-950 shadow-xl">
+                      {locationSuggestions.map((suggestion, index) => (
+                        <button
+                          key={suggestion}
+                          type="button"
+                          onMouseDown={(event) => event.preventDefault()}
+                          onClick={() => selectLocationSuggestion(suggestion)}
+                          className={`flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm transition-colors ${index === activeSuggestionIndex ? "bg-slate-100 text-slate-950" : "hover:bg-slate-50"}`}
+                        >
+                          <MapPin className="h-4 w-4 shrink-0 text-slate-400" />
+                          <span className="truncate">{suggestion}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <div className="flex-1 flex items-center px-4 bg-slate-50 rounded-xl border border-slate-100 hover:border-slate-300 focus-within:border-slate-300 focus-within:ring-1 focus-within:ring-slate-300 transition-all">
                   <span className="text-slate-400 font-medium mr-1 shrink-0">$</span>
