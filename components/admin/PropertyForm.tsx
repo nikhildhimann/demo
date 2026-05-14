@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Link, Loader2, Save, Upload, X } from "lucide-react";
+import { Bath, Bed, Link, Loader2, MapPin, Save, Square, Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
 import { useFormValidation } from "@/hooks/useFormValidation";
 import { cn } from "@/lib/utils";
 
@@ -280,235 +281,390 @@ export function PropertyForm({ property }: { property?: PropertyFormValue }) {
   };
 
   return (
-    <div className="mx-auto max-w-[950px] w-full pb-20">
-      <form onSubmit={handleSubmit} className="space-y-8">
-        <Card className="border-slate-200 shadow-sm rounded-[18px] overflow-hidden">
-          <CardHeader className="border-b bg-slate-50/50 px-8 py-6">
-            <CardTitle className="text-xl font-semibold">Property Details</CardTitle>
-          </CardHeader>
-          <CardContent className="p-8 grid grid-cols-1 gap-x-6 gap-y-6 md:grid-cols-12">
-            {/* Row 1: Title | Slug (Half/Half) */}
-            <div className="space-y-2 md:col-span-6">
-              <Label htmlFor="title" className="text-sm font-medium text-slate-700">Title</Label>
-              <Input
-                id="title"
-                value={values.title}
-                onChange={(e) => handleTitleChange(e.target.value)}
-                onBlur={() => setTouchedField("title")}
-                className={cn("h-11 rounded-lg", errors.title ? "border-red-500" : "border-slate-200")}
-                required
-              />
-              {errors.title && <p className="text-xs text-red-500">{errors.title}</p>}
-            </div>
+    <div className="w-full">
+      <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
+        {/* Left Column: Form Sections */}
+        <form onSubmit={handleSubmit} className="flex-1 space-y-5 min-w-0">
+          {/* Row 1: Basic Details + Location side by side on desktop */}
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
+            {/* Section 1: Basic Details */}
+            <Card className="border-slate-200 shadow-sm rounded-xl overflow-hidden h-full">
+              <CardHeader className="bg-slate-50/50 border-b px-5 py-3">
+                <CardTitle className="text-base font-bold text-slate-900">Basic Details</CardTitle>
+              </CardHeader>
+              <CardContent className="p-5">
+                <div className="grid grid-cols-1 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="title" className="text-xs font-semibold text-slate-700">Property Title</Label>
+                      <Input
+                        id="title"
+                        placeholder="Luxury Villa with Pool"
+                        value={values.title}
+                        onChange={(e) => handleTitleChange(e.target.value)}
+                        onBlur={() => setTouchedField("title")}
+                        className={cn("h-10 rounded-lg transition-all focus:ring-2 focus:ring-primary/20 text-sm", errors.title ? "border-red-500 bg-red-50/30" : "border-slate-200")}
+                        required
+                      />
+                      {errors.title && <p className="text-[10px] font-medium text-red-500 ml-1">{errors.title}</p>}
+                    </div>
 
-            <div className="space-y-2 md:col-span-6">
-              <Label htmlFor="slug" className="text-sm font-medium text-slate-700">Slug</Label>
-              <Input
-                id="slug"
-                value={values.slug}
-                onChange={(e) => setValue("slug", slugify(e.target.value))}
-                onBlur={() => setTouchedField("slug")}
-                className={cn("h-11 rounded-lg", errors.slug ? "border-red-500" : "border-slate-200")}
-                required
-              />
-              {errors.slug && <p className="text-xs text-red-500">{errors.slug}</p>}
-            </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="slug" className="text-xs font-semibold text-slate-700">URL Slug</Label>
+                      <Input
+                        id="slug"
+                        placeholder="luxury-villa-with-pool"
+                        value={values.slug}
+                        onChange={(e) => setValue("slug", slugify(e.target.value))}
+                        onBlur={() => setTouchedField("slug")}
+                        className={cn("h-10 rounded-lg transition-all focus:ring-2 focus:ring-primary/20 text-sm", errors.slug ? "border-red-500 bg-red-50/30" : "border-slate-200")}
+                        required
+                      />
+                      {errors.slug && <p className="text-[10px] font-medium text-red-500 ml-1">{errors.slug}</p>}
+                    </div>
+                  </div>
 
-            {/* Row 2: Price | Purpose | Property Type (One Third Each) */}
-            <div className="space-y-2 md:col-span-4">
-              <Label htmlFor="price" className="text-sm font-medium text-slate-700">Price</Label>
-              <Input
-                id="price"
-                type="number"
-                min={0}
-                value={values.price}
-                onChange={(e) => setValue("price", Number(e.target.value))}
-                onBlur={() => setTouchedField("price")}
-                className={cn("h-11 rounded-lg", errors.price ? "border-red-500" : "border-slate-200")}
-                required
-              />
-              {errors.price && <p className="text-xs text-red-500">{errors.price}</p>}
-            </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="price" className="text-xs font-semibold text-slate-700">Price ($)</Label>
+                      <Input
+                        id="price"
+                        type="number"
+                        min={0}
+                        placeholder="500000"
+                        value={values.price}
+                        onChange={(e) => setValue("price", Number(e.target.value))}
+                        onBlur={() => setTouchedField("price")}
+                        className={cn("h-10 rounded-lg transition-all focus:ring-2 focus:ring-primary/20 text-sm", errors.price ? "border-red-500 bg-red-50/30" : "border-slate-200")}
+                        required
+                      />
+                      {errors.price && <p className="text-[10px] font-medium text-red-500 ml-1">{errors.price}</p>}
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-semibold text-slate-700">Property Type</Label>
+                      <Select value={values.type} onValueChange={(value) => setValue("type", value)}>
+                        <SelectTrigger className="h-10 rounded-lg border-slate-200 transition-all focus:ring-2 focus:ring-primary/20 text-sm">
+                          <SelectValue placeholder="Select" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {propertyTypes.map((type) => <SelectItem key={type} value={type}>{type}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
 
-            <div className="space-y-2 md:col-span-4">
-              <Label className="text-sm font-medium text-slate-700">Purpose</Label>
-              <Select value={values.purpose} onValueChange={(value) => setValue("purpose", value)}>
-                <SelectTrigger className="h-11 rounded-lg border-slate-200"><SelectValue placeholder="Select purpose" /></SelectTrigger>
-                <SelectContent>
-                  {propertyPurposes.map((purpose) => <SelectItem key={purpose} value={purpose}>{purpose}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2 md:col-span-4">
-              <Label className="text-sm font-medium text-slate-700">Property Type</Label>
-              <Select value={values.type} onValueChange={(value) => setValue("type", value)}>
-                <SelectTrigger className="h-11 rounded-lg border-slate-200"><SelectValue placeholder="Select type" /></SelectTrigger>
-                <SelectContent>
-                  {propertyTypes.map((type) => <SelectItem key={type} value={type}>{type}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Row 3: Location | City | Status (One Third Each) */}
-            <div className="space-y-2 md:col-span-4">
-              <Label htmlFor="location" className="text-sm font-medium text-slate-700">Location</Label>
-              <Input id="location" className="h-11 rounded-lg border-slate-200" value={values.location || ""} onChange={(e) => setValue("location", e.target.value)} placeholder="Area/Locality" />
-            </div>
-
-            <div className="space-y-2 md:col-span-4">
-              <Label htmlFor="city" className="text-sm font-medium text-slate-700">City</Label>
-              <Input
-                id="city"
-                value={values.city}
-                onChange={(e) => setValue("city", e.target.value)}
-                onBlur={() => setTouchedField("city")}
-                className={cn("h-11 rounded-lg", errors.city ? "border-red-500" : "border-slate-200")}
-                required
-              />
-              {errors.city && <p className="text-xs text-red-500">{errors.city}</p>}
-            </div>
-
-            <div className="space-y-2 md:col-span-4">
-              <Label className="text-sm font-medium text-slate-700">Status</Label>
-              <Select value={values.status} onValueChange={(value) => setValue("status", value)}>
-                <SelectTrigger className="h-11 rounded-lg border-slate-200"><SelectValue placeholder="Select status" /></SelectTrigger>
-                <SelectContent>
-                  {propertyStatuses.map((status) => <SelectItem key={status} value={status}>{status}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Row 4: Full Address (Full Width) */}
-            <div className="space-y-2 md:col-span-12">
-              <Label htmlFor="address" className="text-sm font-medium text-slate-700">Full Address</Label>
-              <Input
-                id="address"
-                value={values.address}
-                onChange={(e) => setValue("address", e.target.value)}
-                onBlur={() => setTouchedField("address")}
-                className={cn("h-11 rounded-lg", errors.address ? "border-red-500" : "border-slate-200")}
-                required
-              />
-              {errors.address && <p className="text-xs text-red-500">{errors.address}</p>}
-            </div>
-
-            {/* Row 5: Bedrooms | Bathrooms | Size | Featured (One Fourth Each) */}
-            <div className="space-y-2 md:col-span-3">
-              <Label className="text-sm font-medium text-slate-700">Bedrooms</Label>
-              <Input type="number" min={0} className="h-11 rounded-lg border-slate-200" value={values.bedrooms} onChange={(e) => setValue("bedrooms", Number(e.target.value))} />
-            </div>
-            <div className="space-y-2 md:col-span-3">
-              <Label className="text-sm font-medium text-slate-700">Bathrooms</Label>
-              <Input type="number" min={0} className="h-11 rounded-lg border-slate-200" value={values.bathrooms} onChange={(e) => setValue("bathrooms", Number(e.target.value))} />
-            </div>
-            <div className="space-y-2 md:col-span-3">
-              <Label className="text-sm font-medium text-slate-700">Size (sqft)</Label>
-              <Input type="number" min={1} className="h-11 rounded-lg border-slate-200" value={values.size || values.area || 0} onChange={(e) => setValue("size", Number(e.target.value))} />
-            </div>
-            <div className="flex items-center gap-3 md:col-span-3 pt-8">
-              <Checkbox id="featured" checked={values.featured} onCheckedChange={(checked) => setValue("featured", Boolean(checked))} />
-              <Label htmlFor="featured" className="text-sm font-medium text-slate-700 cursor-pointer">Mark as Featured</Label>
-            </div>
-
-            {/* Row 6: Description (Full Width) */}
-            <div className="space-y-2 md:col-span-12">
-              <Label className="text-sm font-medium text-slate-700">Description</Label>
-              <Textarea
-                value={values.description}
-                onChange={(e) => setValue("description", e.target.value)}
-                className={cn("min-h-32 rounded-lg border-slate-200", errors.description ? "border-red-500" : "")}
-                required
-              />
-              {errors.description && <p className="text-xs text-red-500">{errors.description}</p>}
-            </div>
-
-            {/* Row 7: Amenities (Full Width) */}
-            <div className="space-y-2 md:col-span-12">
-              <Label className="text-sm font-medium text-slate-700">Amenities (comma separated)</Label>
-              <Input value={amenitiesText} className="h-11 rounded-lg border-slate-200" onChange={(e) => setAmenitiesText(e.target.value)} placeholder="Pool, Parking, Gym" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-slate-200 shadow-sm rounded-[18px] overflow-hidden">
-          <CardHeader className="border-b bg-slate-50/50 px-8 py-6">
-            <CardTitle className="text-xl font-semibold">Images (1 to 6)</CardTitle>
-          </CardHeader>
-          <CardContent className="p-8 space-y-6">
-            <div className="flex flex-wrap items-center gap-4">
-              <Label htmlFor="image-upload" className="cursor-pointer">
-                <div className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-5 py-2.5 text-sm font-semibold hover:bg-slate-50 transition-colors">
-                  <Upload className="h-4 w-4" />
-                  Upload Images
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold text-slate-700">Purpose</Label>
+                    <Select value={values.purpose} onValueChange={(value) => setValue("purpose", value)}>
+                      <SelectTrigger className="h-10 rounded-lg border-slate-200 transition-all focus:ring-2 focus:ring-primary/20 text-sm">
+                        <SelectValue placeholder="Select" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {propertyPurposes.map((purpose) => <SelectItem key={purpose} value={purpose}>{purpose}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
-              </Label>
-              <input id="image-upload" type="file" accept="image/jpeg,image/png,image/webp" multiple className="hidden" onChange={handleFileSelect} />
-              <div className="text-sm font-medium text-slate-500">
-                Selected: <span className={totalImagesCount > 0 ? "text-primary font-bold" : ""}>{totalImagesCount}</span> / 6
+              </CardContent>
+            </Card>
+
+            {/* Section 2: Location */}
+            <Card className="border-slate-200 shadow-sm rounded-xl overflow-hidden h-full">
+              <CardHeader className="bg-slate-50/50 border-b px-5 py-3">
+                <CardTitle className="text-base font-bold text-slate-900">Location</CardTitle>
+              </CardHeader>
+              <CardContent className="p-5 space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="location" className="text-xs font-semibold text-slate-700">Locality/Area</Label>
+                    <Input id="location" placeholder="Beverly Hills" className="h-10 rounded-lg border-slate-200 transition-all focus:ring-2 focus:ring-primary/20 text-sm" value={values.location || ""} onChange={(e) => setValue("location", e.target.value)} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="city" className="text-xs font-semibold text-slate-700">City</Label>
+                    <Input
+                      id="city"
+                      placeholder="Los Angeles"
+                      value={values.city}
+                      onChange={(e) => setValue("city", e.target.value)}
+                      onBlur={() => setTouchedField("city")}
+                      className={cn("h-10 rounded-lg transition-all focus:ring-2 focus:ring-primary/20 text-sm", errors.city ? "border-red-500 bg-red-50/30" : "border-slate-200")}
+                      required
+                    />
+                    {errors.city && <p className="text-[10px] font-medium text-red-500 ml-1">{errors.city}</p>}
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 gap-4">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold text-slate-700">Status</Label>
+                    <Select value={values.status} onValueChange={(value) => setValue("status", value)}>
+                      <SelectTrigger className="h-10 rounded-lg border-slate-200 transition-all focus:ring-2 focus:ring-primary/20 text-sm">
+                        <SelectValue placeholder="Select" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {propertyStatuses.map((status) => <SelectItem key={status} value={status}>{status}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="address" className="text-xs font-semibold text-slate-700">Full Address</Label>
+                    <Input
+                      id="address"
+                      placeholder="123 Luxury Lane, Beverly Hills, CA 90210"
+                      value={values.address}
+                      onChange={(e) => setValue("address", e.target.value)}
+                      onBlur={() => setTouchedField("address")}
+                      className={cn("h-10 rounded-lg transition-all focus:ring-2 focus:ring-primary/20 text-sm", errors.address ? "border-red-500 bg-red-50/30" : "border-slate-200")}
+                      required
+                    />
+                    {errors.address && <p className="text-[10px] font-medium text-red-500 ml-1">{errors.address}</p>}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Row 2: Property Specs + Description side by side on desktop */}
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
+            {/* Section 3: Property Specs */}
+            <Card className="border-slate-200 shadow-sm rounded-xl overflow-hidden h-full">
+              <CardHeader className="bg-slate-50/50 border-b px-5 py-3">
+                <CardTitle className="text-base font-bold text-slate-900">Property Specs</CardTitle>
+              </CardHeader>
+              <CardContent className="p-5">
+                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold text-slate-700">Bedrooms</Label>
+                    <Input type="number" min={0} className="h-10 rounded-lg border-slate-200 text-sm" value={values.bedrooms} onChange={(e) => setValue("bedrooms", Number(e.target.value))} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold text-slate-700">Bathrooms</Label>
+                    <Input type="number" min={0} className="h-10 rounded-lg border-slate-200 text-sm" value={values.bathrooms} onChange={(e) => setValue("bathrooms", Number(e.target.value))} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold text-slate-700">Size (sqft)</Label>
+                    <Input type="number" min={1} className="h-10 rounded-lg border-slate-200 text-sm" value={values.size || values.area || 0} onChange={(e) => setValue("size", Number(e.target.value))} />
+                  </div>
+                  <div className="flex items-center gap-3 pt-6">
+                    <div className="flex items-center space-x-2 bg-slate-50 border border-slate-200 px-3 py-2 rounded-lg cursor-pointer hover:bg-slate-100 transition-colors w-full">
+                      <Checkbox id="featured" checked={values.featured} onCheckedChange={(checked) => setValue("featured", Boolean(checked))} />
+                      <Label htmlFor="featured" className="text-xs font-semibold text-slate-700 cursor-pointer">Featured Listing</Label>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Section 4: Description & Amenities */}
+            <Card className="border-slate-200 shadow-sm rounded-xl overflow-hidden h-full">
+              <CardHeader className="bg-slate-50/50 border-b px-5 py-3">
+                <CardTitle className="text-base font-bold text-slate-900">Description & Amenities</CardTitle>
+              </CardHeader>
+              <CardContent className="p-5 space-y-5">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-slate-700">Description</Label>
+                  <Textarea
+                    placeholder="Describe your property in detail..."
+                    value={values.description}
+                    onChange={(e) => setValue("description", e.target.value)}
+                    className={cn("min-h-20 max-h-40 rounded-lg transition-all focus:ring-2 focus:ring-primary/20 text-sm", errors.description ? "border-red-500 bg-red-50/30" : "border-slate-200")}
+                    required
+                  />
+                  {errors.description && <p className="text-[10px] font-medium text-red-500 ml-1">{errors.description}</p>}
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-slate-700">Amenities</Label>
+                  <Input value={amenitiesText} className="h-10 rounded-lg border-slate-200 text-sm" onChange={(e) => setAmenitiesText(e.target.value)} placeholder="Pool, Parking, Gym..." />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Row 3: Images (Full Width) */}
+          <Card className="border-slate-200 shadow-sm rounded-xl overflow-hidden">
+            <CardHeader className="bg-slate-50/50 border-b px-5 py-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base font-bold text-slate-900">Images (1 to 6)</CardTitle>
+                <div className="text-xs font-bold bg-slate-100 px-2.5 py-1 rounded-full text-slate-600 border border-slate-200">
+                  <span className={totalImagesCount > 0 ? "text-primary" : ""}>{totalImagesCount}</span> / 6
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="p-5 space-y-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div className="space-y-3">
+                  <div className="flex flex-col gap-2">
+                    <Label className="text-xs font-semibold text-slate-700">Local Upload</Label>
+                    <Label htmlFor="image-upload" className="cursor-pointer">
+                      <div className="flex flex-col items-center justify-center gap-1.5 rounded-xl border-2 border-dashed border-slate-200 px-4 py-5 hover:bg-slate-50/50 hover:border-primary/50 transition-all group">
+                        <div className="rounded-full bg-slate-50 p-2 group-hover:bg-primary/10 transition-colors">
+                          <Upload className="h-4 w-4 text-slate-400 group-hover:text-primary transition-colors" />
+                        </div>
+                        <div className="text-center">
+                          <p className="text-xs font-bold text-slate-900">Click to upload</p>
+                          <p className="text-[10px] text-slate-500">JPG, PNG, WEBP (max 5MB)</p>
+                        </div>
+                      </div>
+                    </Label>
+                    <input id="image-upload" type="file" accept="image/jpeg,image/png,image/webp" multiple className="hidden" onChange={handleFileSelect} />
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="flex flex-col gap-2">
+                    <Label className="text-xs font-semibold text-slate-700">External URL</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        value={manualImageUrl}
+                        onChange={(event) => setManualImageUrl(event.target.value)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") {
+                            event.preventDefault();
+                            addManualImageUrl();
+                          }
+                        }}
+                        className="h-10 rounded-lg border-slate-200 transition-all focus:ring-2 focus:ring-primary/20 text-sm"
+                        placeholder="Paste image URL here..."
+                      />
+                      <Button type="button" variant="outline" className="h-10 rounded-lg px-3 shrink-0 hover:bg-slate-50" onClick={addManualImageUrl} disabled={!manualImageUrl.trim()}>
+                        <Link className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                    <p className="text-[10px] text-slate-400 leading-relaxed">External image URLs must be public links.</p>
+                  </div>
+                </div>
+              </div>
+
+              {totalImagesCount === 0 && (
+                <div className="flex items-center gap-2 text-xs font-bold text-red-500 bg-red-50 p-3 rounded-lg border border-red-100 animate-in fade-in slide-in-from-top-1">
+                  <X className="h-3.5 w-3.5" />
+                  At least one image is required.
+                </div>
+              )}
+
+              {totalImagesCount > 0 && (
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+                  {existingImages.map((image, index) => (
+                    <div key={`existing-${index}`} className="group relative aspect-[4/3] overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+                      <Image src={image.url} alt={`Existing ${index + 1}`} fill className="object-cover transition-transform group-hover:scale-105" unoptimized />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <button type="button" onClick={() => removeExistingImage(index)} className="rounded-full bg-white p-1.5 text-red-600 shadow-xl hover:scale-110 transition-transform">
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                  {previews.map((item, index) => (
+                    <div key={`new-${index}`} className="group relative aspect-[4/3] overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+                      <Image src={item.preview} alt={`New ${index + 1}`} fill className="object-cover transition-transform group-hover:scale-105" unoptimized />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <button type="button" onClick={() => removeNewFile(index)} className="rounded-full bg-white p-1.5 text-red-600 shadow-xl hover:scale-110 transition-transform">
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
+            <Button type="button" variant="ghost" className="h-10 px-6 font-bold text-slate-500 hover:bg-slate-100 rounded-xl transition-all text-sm" onClick={() => router.push("/admin/properties")}>
+              Cancel
+            </Button>
+            <Button type="submit" size="lg" className="h-10 px-8 rounded-xl font-bold shadow-xl shadow-primary/20 hover:-translate-y-0.5 transition-all active:scale-95 text-sm" disabled={isSaving || isUploading}>
+              {isSaving || isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+              {isUploading ? "Uploading..." : property?.id ? "Update Listing" : "Publish Listing"}
+            </Button>
+          </div>
+        </form>
+
+        {/* Right Column: Sticky Live Preview */}
+        <div className="w-full lg:w-[350px] lg:sticky lg:top-24 space-y-4">
+          <div className="flex items-center justify-between px-1">
+            <h3 className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Live Preview</h3>
+            <span className="text-[10px] font-medium text-slate-400">Updates before publishing</span>
+          </div>
+
+          <Card className="border-slate-200 shadow-xl rounded-2xl overflow-hidden group">
+            <div className="relative aspect-[4/3] bg-slate-100 overflow-hidden">
+              {(existingImages[0]?.url || previews[0]?.preview) ? (
+                <Image
+                  src={existingImages[0]?.url || previews[0]?.preview}
+                  alt="Preview"
+                  fill
+                  className="object-cover transition-transform group-hover:scale-105"
+                  unoptimized
+                />
+              ) : (
+                <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-400 bg-slate-50">
+                  <Upload className="h-8 w-8 mb-2 opacity-20" />
+                  <p className="text-[10px] font-bold">No images yet</p>
+                </div>
+              )}
+
+              <div className="absolute top-3 left-3 flex flex-wrap gap-2">
+                <Badge className="bg-white/95 text-slate-900 border-none shadow-sm backdrop-blur font-bold text-[10px] h-6 px-2">
+                  {values.purpose}
+                </Badge>
+                {values.featured && (
+                  <Badge className="bg-amber-400 text-amber-950 border-none shadow-sm font-bold text-[10px] h-6 px-2">
+                    Featured
+                  </Badge>
+                )}
+              </div>
+
+              <div className="absolute top-3 right-3">
+                <Badge className={cn("border-none shadow-sm font-bold text-[10px] h-6 px-2", 
+                  values.status === "AVAILABLE" ? "bg-emerald-500 text-white" : "bg-slate-700 text-white")}>
+                  {values.status}
+                </Badge>
               </div>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-[1fr_auto]">
-              <Input
-                value={manualImageUrl}
-                onChange={(event) => setManualImageUrl(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") {
-                    event.preventDefault();
-                    addManualImageUrl();
-                  }
-                }}
-                className="h-11 rounded-lg border-slate-200"
-                placeholder="Paste external image URL"
-              />
-              <Button type="button" variant="outline" className="h-11 rounded-lg px-6" onClick={addManualImageUrl} disabled={!manualImageUrl.trim()}>
-                <Link className="mr-2 h-4 w-4" />
-                Add URL
-              </Button>
-            </div>
-            
-            <p className="text-xs text-slate-400 leading-relaxed">
-              Allowed uploads: JPG, PNG, WEBP up to 5MB. External image URLs must be public HTTPS/HTTP links.
-            </p>
-
-            {totalImagesCount === 0 && (
-              <p className="text-sm font-medium text-red-500 bg-red-50 p-3 rounded-lg border border-red-100">At least one image is required.</p>
-            )}
-
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-              {existingImages.map((image, index) => (
-                <div key={`existing-${index}`} className="group relative aspect-[4/3] overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
-                  <Image src={image.url} alt={`Existing ${index + 1}`} fill className="object-cover transition-transform group-hover:scale-105" unoptimized />
-                  <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity" />
-                  <button type="button" onClick={() => removeExistingImage(index)} className="absolute right-3 top-3 rounded-full bg-white/90 p-2 text-red-600 shadow-sm hover:bg-red-600 hover:text-white transition-all scale-90 group-hover:scale-100">
-                    <X className="h-4 w-4" />
-                  </button>
+            <CardContent className="p-4 space-y-3">
+              <div className="space-y-1">
+                <div className="flex items-center gap-1.5 text-primary text-base font-black tracking-tight">
+                  {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(values.price || 0)}
+                  {values.purpose === "RENT" && <span className="text-[10px] font-bold text-slate-400">/ month</span>}
                 </div>
-              ))}
-              {previews.map((item, index) => (
-                <div key={`new-${index}`} className="group relative aspect-[4/3] overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
-                  <Image src={item.preview} alt={`New ${index + 1}`} fill className="object-cover transition-transform group-hover:scale-105" unoptimized />
-                  <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity" />
-                  <button type="button" onClick={() => removeNewFile(index)} className="absolute right-3 top-3 rounded-full bg-white/90 p-2 text-red-600 shadow-sm hover:bg-red-600 hover:text-white transition-all scale-90 group-hover:scale-100">
-                    <X className="h-4 w-4" />
-                  </button>
+                <h4 className="text-sm font-bold text-slate-900 leading-tight line-clamp-1">
+                  {values.title || "Property Title"}
+                </h4>
+                <div className="flex items-center gap-1 text-slate-500">
+                  <MapPin className="h-3 w-3 shrink-0" />
+                  <p className="text-[10px] font-semibold truncate">
+                    {values.city ? `${values.city}${values.location ? `, ${values.location}` : ''}` : "City, Location"}
+                  </p>
                 </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+              </div>
 
-        <div className="flex items-center justify-end gap-4 pt-4 border-t border-slate-100">
-          <Button type="button" variant="ghost" className="h-12 px-8 font-semibold text-slate-600 hover:bg-slate-100 rounded-xl" onClick={() => router.push("/admin/properties")}>
-            Cancel
-          </Button>
-          <Button type="submit" size="lg" className="h-12 px-10 rounded-xl font-bold shadow-lg shadow-primary/20" disabled={isSaving || isUploading}>
-            {isSaving || isUploading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Save className="mr-2 h-5 w-5" />}
-            {isUploading ? "Uploading..." : property?.id ? "Update Property" : "Publish Property"}
-          </Button>
+              <div className="grid grid-cols-3 gap-1 border-y border-slate-100 py-2.5">
+                <div className="flex flex-col items-center gap-1">
+                  <Bed className="h-3.5 w-3.5 text-slate-400" />
+                  <span className="text-[9px] font-bold text-slate-600">{values.bedrooms || 0} Beds</span>
+                </div>
+                <div className="flex flex-col items-center gap-1 border-x border-slate-100 px-1">
+                  <Bath className="h-3.5 w-3.5 text-slate-400" />
+                  <span className="text-[9px] font-bold text-slate-600">{values.bathrooms || 0} Baths</span>
+                </div>
+                <div className="flex flex-col items-center gap-1">
+                  <Square className="h-3.5 w-3.5 text-slate-400" />
+                  <span className="text-[9px] font-bold text-slate-600">{values.size || values.area || 0} sqft</span>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between pt-1">
+                <Badge variant="outline" className="text-[9px] font-bold border-slate-200 text-slate-400 uppercase tracking-widest px-2">
+                  {values.type}
+                </Badge>
+                <span className="text-[9px] font-bold text-slate-200 tracking-tighter">LISTING #NEW</span>
+              </div>
+            </CardContent>
+          </Card>
         </div>
-      </form>
+      </div>
     </div>
   );
 }

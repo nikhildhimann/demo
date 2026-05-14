@@ -62,8 +62,8 @@ function LoginPageContent() {
         </div>
       </div>
 
-      <div className="flex items-center justify-center p-8 bg-white">
-        <div className="w-full max-w-md space-y-8">
+      <div className="flex items-start md:items-center justify-center p-8 bg-white pt-16 md:pt-8 overflow-y-auto">
+        <div className="w-full max-w-md space-y-8 mt-4 md:mt-0">
           <div className="text-center md:text-left">
             <h2 className="text-3xl font-bold tracking-tight text-slate-900">Admin Sign In</h2>
             <p className="mt-2 text-sm text-slate-600">

@@ -112,3 +112,7 @@
     color: #475569;
   }
 }
+
+body.mobile-menu-open .body-mobile-menu-open\:hidden {
+  display: none !important;
+}

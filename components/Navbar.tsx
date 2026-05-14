@@ -29,6 +29,15 @@ const propertyListingItems = [
 export function Navbar({ settings }: { settings: PublicSiteSettings }) {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  useEffect(() => {
+    if (isMobileMenuOpen) {
+      document.body.classList.add("mobile-menu-open");
+    } else {
+      document.body.classList.remove("mobile-menu-open");
+    }
+  }, [isMobileMenuOpen]);
+
   const [isDesktopDropdownOpen, setIsDesktopDropdownOpen] = useState(false);
   const [isMobilePropertiesOpen, setIsMobilePropertiesOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -203,7 +212,7 @@ export function Navbar({ settings }: { settings: PublicSiteSettings }) {
             <div className="flex h-[100dvh] flex-col px-4 py-6">
               <div className="mb-6 flex items-center justify-between">
                 <div className="flex min-w-0 items-center gap-2">
-                  <div className="rounded-lg bg-primary p-2 text-white">
+                  <div className="rounded-lg bg-slate-900 p-2 text-white">
                     <Building2 className="w-5 h-5" />
                   </div>
                   <span className="truncate text-lg font-bold text-slate-900">

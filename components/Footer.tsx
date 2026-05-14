@@ -3,7 +3,35 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ArrowUpRight, Building2, Mail, MapPin, Phone } from "lucide-react";
+import type { ComponentType, SVGProps } from "react";
 import type { PublicSiteSettings } from "@/types/settings";
+
+type SocialIconProps = SVGProps<SVGSVGElement>;
+
+const socialIcons: Record<"facebook" | "twitter" | "instagram" | "linkedin", ComponentType<SocialIconProps>> = {
+  facebook: (props) => (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" {...props}>
+      <path d="M14.1 8.1V6.3c0-.9.6-1.1 1-1.1h2.6V1.1L14.1 1C10.2 1 9.3 3.9 9.3 5.8v2.3H6v4.5h3.3V23h4.8V12.6h3.5l.5-4.5h-4z" />
+    </svg>
+  ),
+  twitter: (props) => (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" {...props}>
+      <path d="M13.9 10.5 21.4 2h-1.8l-6.5 7.4L7.9 2H2l7.9 11.2L2 22h1.8l6.9-7.8 5.5 7.8H22l-8.1-11.5zm-2.5 2.8-.8-1.1L4.3 3.3H7l5.1 7.2.8 1.1 6.7 9.3H17l-5.6-7.6z" />
+    </svg>
+  ),
+  instagram: (props) => (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" {...props}>
+      <rect width="17.5" height="17.5" x="3.25" y="3.25" rx="5" stroke="currentColor" strokeWidth="2" />
+      <circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="2" />
+      <circle cx="17.25" cy="6.75" r="1.15" fill="currentColor" />
+    </svg>
+  ),
+  linkedin: (props) => (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" {...props}>
+      <path d="M5.4 8.6H1.7V22h3.7V8.6zM3.5 2C2.3 2 1.4 2.9 1.4 4.1s.9 2.1 2.1 2.1 2.1-.9 2.1-2.1S4.7 2 3.5 2zm7.5 6.6H7.4V22H11v-6.6c0-1.7.3-3.4 2.5-3.4 2.1 0 2.1 2 2.1 3.5V22h3.7v-7.4c0-3.6-.8-6.4-5-6.4-2 0-3.3 1.1-3.9 2.1H11V8.6z" />
+    </svg>
+  ),
+};
 
 export function Footer({ settings }: { settings: PublicSiteSettings }) {
   const pathname = usePathname();
@@ -15,13 +43,15 @@ export function Footer({ settings }: { settings: PublicSiteSettings }) {
   const footerArrowClass =
     "h-3.5 w-3.5 opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all";
   const mapHref = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(settings.displayAddress || settings.businessName)}`;
-  const socials = [
-    ["Facebook", settings.socialLinks.facebook],
-    ["Twitter", settings.socialLinks.twitter],
-    ["Instagram", settings.socialLinks.instagram],
-    ["LinkedIn", settings.socialLinks.linkedin],
-    ["YouTube", settings.socialLinks.youtube],
-  ].filter(([, href]) => href);
+  
+  const socialConfig = [
+    { label: "Facebook", href: settings.socialLinks?.facebook, icon: socialIcons.facebook },
+    { label: "Twitter", href: settings.socialLinks?.twitter, icon: socialIcons.twitter },
+    { label: "Instagram", href: settings.socialLinks?.instagram, icon: socialIcons.instagram },
+    { label: "LinkedIn", href: settings.socialLinks?.linkedin, icon: socialIcons.linkedin },
+  ];
+
+  const socials = socialConfig.filter(social => social.href);
 
   return (
     <footer className="border-t border-slate-800 bg-[#070B1A] pt-16 pb-8 text-slate-200">
@@ -41,9 +71,9 @@ export function Footer({ settings }: { settings: PublicSiteSettings }) {
             </p>
             {socials.length > 0 && (
               <div className="flex flex-wrap items-center gap-3">
-                {socials.map(([label, href]) => (
-                  <a key={label} href={href} target="_blank" rel="noreferrer" aria-label={label} className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-800 text-xs font-bold text-slate-100 transition-all hover:-translate-y-1 hover:bg-white hover:text-slate-950">
-                    {label.slice(0, 1)}
+                {socials.map(({ label, href, icon: Icon }) => (
+                  <a key={label} href={href} target="_blank" rel="noreferrer" aria-label={label} className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-800 text-slate-100 transition-all hover:-translate-y-1 hover:bg-white hover:text-slate-950">
+                    <Icon className="h-5 w-5" />
                   </a>
                 ))}
               </div>

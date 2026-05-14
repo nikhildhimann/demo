@@ -439,7 +439,7 @@ export default function AIPropertyAssistant({ settings }: { settings: PublicSite
             setOpen(true);
             setMinimized(false);
           }}
-          className="fixed bottom-6 right-4 z-[9997] h-14 w-14 rounded-full bg-emerald-500 text-white shadow-2xl shadow-emerald-950/25 hover:bg-emerald-600 focus-visible:ring-emerald-500 md:h-14 md:w-auto md:rounded-full md:px-5 lg:px-5"
+          className="fixed bottom-6 right-4 z-[9997] h-14 w-14 rounded-full bg-emerald-500 text-white shadow-2xl shadow-emerald-950/25 hover:bg-emerald-600 focus-visible:ring-emerald-500 md:h-14 md:w-auto md:rounded-full md:px-5 lg:px-5 body-mobile-menu-open:hidden"
           aria-label="Open AI Property Assistant"
         >
           <Bot className="h-5 w-5 md:mr-2" />
@@ -454,7 +454,7 @@ export default function AIPropertyAssistant({ settings }: { settings: PublicSite
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
             transition={{ duration: 0.2 }}
-            className="fixed bottom-3 right-3 z-[10000] w-[calc(100vw-1.5rem)] max-w-sm sm:bottom-4 sm:right-4"
+            className="fixed bottom-3 right-3 z-[10000] w-[calc(100vw-1.5rem)] max-w-sm sm:bottom-4 sm:right-4 body-mobile-menu-open:hidden"
           >
             <div className="overflow-hidden rounded-2xl border border-slate-300 bg-white text-slate-950 shadow-2xl shadow-slate-950/25">
               <div className="flex items-center justify-between bg-slate-900 px-4 py-3 text-white">
