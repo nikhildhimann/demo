@@ -5,17 +5,19 @@ import { format } from "date-fns";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
+import { cn, formatPrice } from "@/lib/utils";
 import { buildWhatsAppUrl } from "@/lib/whatsapp";
 import {
   CalendarClock,
   CheckCircle2,
   ChevronDown,
   ChevronUp,
+  Copy,
   Download,
   ExternalLink,
   Flame,
   Inbox,
+  Loader2,
   Mail,
   MessageCircle,
   MoreHorizontal,
@@ -27,6 +29,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -66,6 +69,7 @@ type Lead = {
   budget: string | null;
   preferredLocation: string | null;
   preferredType: string | null;
+  preferredContactTime: string | null;
   notes: string | null;
   followUpDate: string | null;
   createdAt: string;
@@ -93,6 +97,25 @@ type PropertyOption = {
   type: string;
   purpose: string;
   price: number;
+};
+
+type MatchProperty = {
+  id: string;
+  title: string;
+  slug: string;
+  price: number;
+  type: string;
+  purpose: string;
+  status: string;
+  location: string | null;
+  suburb: string | null;
+  city: string;
+  address: string;
+  bedrooms: number;
+  bathrooms: number;
+  imageUrl: string | null;
+  score: number;
+  reasons: string[];
 };
 
 type LeadFilters = {
@@ -177,6 +200,43 @@ function whatsappUrl(lead: Lead, businessName: string) {
   return buildWhatsAppUrl(lead.phone, buildWhatsAppMessage(lead, businessName));
 }
 
+function propertyLocation(property: Pick<MatchProperty, "suburb" | "location" | "city">) {
+  return property.suburb || property.location || property.city;
+}
+
+function guideLabel(purpose: string) {
+  return purpose === "RENT" ? "Rent guide" : "Price guide";
+}
+
+function buildMatchShareMessage(
+  lead: Lead,
+  matches: MatchProperty[],
+  businessName: string,
+  siteUrl: string,
+  currency: string
+) {
+  const baseUrl = siteUrl.replace(/\/$/, "");
+  const lines = [
+    `Hi ${lead.name}, this is ${businessName}.`,
+    "",
+    "I found a few available properties that may suit your enquiry:",
+    "",
+    ...matches.flatMap((property, index) => {
+      const details = [
+        `${index + 1}. ${property.title}`,
+        propertyLocation(property),
+        `${guideLabel(property.purpose)}: ${formatPrice(property.price, currency)}`,
+        property.bedrooms || property.bathrooms ? `${property.bedrooms} bed · ${property.bathrooms} bath` : "",
+        `${baseUrl}/properties/${property.slug}`,
+      ];
+      return [...details.filter(Boolean), ""];
+    }),
+    "Would you like to inspect any of these?",
+  ];
+
+  return lines.join("\n");
+}
+
 function filtersFromSearchParams(searchParams: URLSearchParams): LeadFilters {
   return {
     ...defaultFilters,
@@ -234,6 +294,11 @@ export function EnquiriesClient({ embedded = false }: { embedded?: boolean }) {
   const [searchInput, setSearchInput] = useState(() => filtersFromSearchParams(searchParams).search);
   const [openedLeadId, setOpenedLeadId] = useState("");
   const [showMobileFilters, setShowMobileFilters] = useState(false);
+  const [matches, setMatches] = useState<MatchProperty[]>([]);
+  const [selectedMatchIds, setSelectedMatchIds] = useState<string[]>([]);
+  const [isLoadingMatches, setIsLoadingMatches] = useState(false);
+  const [matchError, setMatchError] = useState("");
+  const [matchMeta, setMatchMeta] = useState({ siteUrl: "", currency: "AUD" });
 
   const fetchLeads = useCallback(async () => {
     setIsLoading(true);
@@ -355,6 +420,45 @@ export function EnquiriesClient({ embedded = false }: { embedded?: boolean }) {
     };
   }, [leadId, leads, openLead, openedLeadId, selectedLead?.id]);
 
+  useEffect(() => {
+    if (!selectedLead) {
+      setMatches([]);
+      setSelectedMatchIds([]);
+      setMatchError("");
+      setIsLoadingMatches(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    const selectedLeadId = selectedLead.id;
+    setIsLoadingMatches(true);
+    setMatchError("");
+    setSelectedMatchIds([]);
+
+    async function fetchMatches() {
+      try {
+        const response = await fetch(`/api/admin/enquiries/${selectedLeadId}/matches`, { signal: controller.signal });
+        const data = await response.json().catch(() => null);
+        if (!response.ok) throw new Error(data?.error || "Could not load matches");
+        setMatches(data?.matches || []);
+        setMatchMeta({
+          siteUrl: data?.siteUrl || window.location.origin,
+          currency: data?.currency || "AUD",
+        });
+      } catch (error: any) {
+        if (error.name === "AbortError") return;
+        setMatches([]);
+        setMatchError(error.message || "Could not load matches");
+      } finally {
+        if (!controller.signal.aborted) setIsLoadingMatches(false);
+      }
+    }
+
+    fetchMatches();
+
+    return () => controller.abort();
+  }, [selectedLead]);
+
   const updateLead = async () => {
     if (!selectedLead) return;
     setIsSaving(true);
@@ -422,19 +526,47 @@ export function EnquiriesClient({ embedded = false }: { embedded?: boolean }) {
     }));
   }, [leads]);
 
-  const matchingProperties = useMemo(() => {
-    if (!selectedLead) return [];
-    const location = (selectedLead.preferredLocation || selectedLead.property?.location || selectedLead.property?.city || "").toLowerCase();
-    const type = (selectedLead.preferredType || selectedLead.property?.type || "").toLowerCase();
-    return properties
-      .filter((property) => {
-        const matchesLocation = location ? `${property.location || ""} ${property.city}`.toLowerCase().includes(location) : true;
-        const matchesType = type ? property.type.toLowerCase().includes(type) : true;
-        return matchesLocation || matchesType;
-      })
-      .filter((property) => property.id !== selectedLead.property?.id)
-      .slice(0, 4);
-  }, [properties, selectedLead]);
+  const selectedMatches = useMemo(
+    () => matches.filter((property) => selectedMatchIds.includes(property.id)).slice(0, 5),
+    [matches, selectedMatchIds]
+  );
+
+  const toggleMatch = (propertyId: string) => {
+    setSelectedMatchIds((current) => {
+      if (current.includes(propertyId)) return current.filter((id) => id !== propertyId);
+      if (current.length >= 5) {
+        toast.info("Select up to 5 properties for one WhatsApp message.");
+        return current;
+      }
+      return [...current, propertyId];
+    });
+  };
+
+  const getMatchShareMessage = () => {
+    if (!selectedLead) return "";
+    const siteUrl = matchMeta.siteUrl || window.location.origin;
+    return buildMatchShareMessage(selectedLead, selectedMatches, businessName, siteUrl, matchMeta.currency || "AUD");
+  };
+
+  const shareSelectedMatches = () => {
+    if (!selectedLead || selectedMatches.length === 0) return;
+    const url = buildWhatsAppUrl(selectedLead.phone, getMatchShareMessage());
+    if (!url) {
+      toast.error("Lead phone number is missing.");
+      return;
+    }
+    window.open(url, "_blank", "noopener,noreferrer");
+  };
+
+  const copySelectedMatchMessage = async () => {
+    if (!selectedMatches.length) return;
+    try {
+      await navigator.clipboard.writeText(getMatchShareMessage());
+      toast.success("WhatsApp message copied");
+    } catch {
+      toast.error("Could not copy message");
+    }
+  };
 
   const statCards = [
     { id: "total" as const, title: "Total Leads", value: stats.total, icon: Target, color: "text-slate-700", active: activeStat === "total" },
@@ -779,6 +911,7 @@ export function EnquiriesClient({ embedded = false }: { embedded?: boolean }) {
                   <Info label="Budget" value={selectedLead.budget || "Not provided"} />
                   <Info label="Preferred Location" value={selectedLead.preferredLocation || selectedLead.property?.location || "Not provided"} />
                   <Info label="Preferred Type" value={selectedLead.preferredType || selectedLead.property?.type || "Not provided"} />
+                  {selectedLead.preferredContactTime && <Info label="Preferred Inspection Time" value={selectedLead.preferredContactTime} />}
                 </div>
 
                 <div>
@@ -820,6 +953,14 @@ export function EnquiriesClient({ embedded = false }: { embedded?: boolean }) {
                     <Button className="w-full justify-start" variant="outline" asChild><a href={`tel:${selectedLead.phone}`}><Phone className="mr-2 h-4 w-4" />Call</a></Button>
                     <Button className="w-full justify-start" variant="outline" disabled={!selectedLead.email} asChild={Boolean(selectedLead.email)}>{selectedLead.email ? <a href={`mailto:${selectedLead.email}`}><Mail className="mr-2 h-4 w-4" />Email</a> : <span><Mail className="mr-2 h-4 w-4" />Email</span>}</Button>
                     <Button className="w-full justify-start bg-emerald-600 text-white hover:bg-emerald-700" asChild><a href={whatsappUrl(selectedLead, businessName)} target="_blank" rel="noreferrer"><MessageCircle className="mr-2 h-4 w-4" />WhatsApp Reply</a></Button>
+                    {selectedLead.source === "seller_appraisal" && (
+                      <Button className="w-full justify-start" variant="outline" asChild>
+                        <Link href={`/admin/properties/new?leadId=${encodeURIComponent(selectedLead.id)}`}>
+                          <ExternalLink className="mr-2 h-4 w-4" />
+                          Prepare Draft Listing
+                        </Link>
+                      </Button>
+                    )}
                   </CardContent>
                 </Card>
 
@@ -839,12 +980,57 @@ export function EnquiriesClient({ embedded = false }: { embedded?: boolean }) {
                 <Card>
                   <CardHeader><CardTitle className="text-base">Matching Properties</CardTitle></CardHeader>
                   <CardContent className="space-y-3">
-                    {matchingProperties.length ? matchingProperties.map((property) => (
-                      <Link key={property.id} href={`/properties/${property.slug}`} target="_blank" className="block rounded-lg border p-3 hover:bg-muted">
-                        <p className="truncate text-sm font-semibold">{property.title}</p>
-                        <p className="text-xs text-muted-foreground">{property.city} · {property.type}</p>
-                      </Link>
-                    )) : <p className="text-sm text-muted-foreground">No matches in current filtered page.</p>}
+                    {isLoadingMatches ? (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                        <span>Finding available matches...</span>
+                      </div>
+                    ) : matchError ? (
+                      <p className="text-sm text-destructive">Could not load matches.</p>
+                    ) : matches.length ? (
+                      <>
+                        <div className="space-y-2">
+                          {matches.map((property) => {
+                            const selected = selectedMatchIds.includes(property.id);
+                            return (
+                              <div key={property.id} className={cn("rounded-lg border p-3 transition-colors", selected && "border-primary bg-primary/5")}>
+                                <div className="flex gap-3">
+                                  <Checkbox checked={selected} onCheckedChange={() => toggleMatch(property.id)} aria-label={`Select ${property.title}`} />
+                                  <div className="min-w-0 flex-1 space-y-1">
+                                    <div className="flex items-start justify-between gap-2">
+                                      <Link href={`/properties/${property.slug}`} target="_blank" className="truncate text-sm font-semibold hover:text-primary">
+                                        {property.title}
+                                      </Link>
+                                      <Badge variant="secondary" className="shrink-0 text-[10px]">{property.score}</Badge>
+                                    </div>
+                                    <p className="text-xs text-muted-foreground">
+                                      {propertyLocation(property)} · {property.type} · {property.purpose}
+                                    </p>
+                                    <p className="text-xs font-medium">
+                                      {guideLabel(property.purpose)}: {formatPrice(property.price, matchMeta.currency || "AUD")}
+                                      {(property.bedrooms || property.bathrooms) ? ` · ${property.bedrooms} bed · ${property.bathrooms} bath` : ""}
+                                    </p>
+                                    {property.reasons.length > 0 && (
+                                      <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{property.reasons.join(" · ")}</p>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                        <div className="grid gap-2">
+                          <Button size="sm" className="w-full justify-center bg-emerald-600 text-white hover:bg-emerald-700" disabled={!selectedMatches.length || !selectedLead.phone} onClick={shareSelectedMatches}>
+                            <MessageCircle className="mr-2 h-4 w-4" />
+                            Share Selected on WhatsApp
+                          </Button>
+                          <Button size="sm" variant="outline" className="w-full justify-center" disabled={!selectedMatches.length} onClick={copySelectedMatchMessage}>
+                            <Copy className="mr-2 h-4 w-4" />
+                            Copy Message
+                          </Button>
+                        </div>
+                      </>
+                    ) : <p className="text-sm text-muted-foreground">No available matches found.</p>}
                   </CardContent>
                 </Card>
               </div>

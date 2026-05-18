@@ -16,7 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { useFormValidation } from "@/hooks/useFormValidation";
 import { cn } from "@/lib/utils";
 
-type PropertyFormValue = {
+export type PropertyFormValue = {
   id?: string;
   title: string;
   slug: string;
@@ -100,7 +100,7 @@ const emptyProperty: PropertyFormValue = {
   country: "",
 };
 
-export function PropertyForm({ property, currency = "AUD" }: { property?: PropertyFormValue; currency?: string }) {
+export function PropertyForm({ property, currency = "AUD", prefillNotice }: { property?: PropertyFormValue; currency?: string; prefillNotice?: string }) {
   const router = useRouter();
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -323,6 +323,11 @@ export function PropertyForm({ property, currency = "AUD" }: { property?: Proper
 
   return (
     <div className="w-full">
+      {prefillNotice && (
+        <div className="mb-5 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-900">
+          {prefillNotice}
+        </div>
+      )}
       <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
         {/* Left Column: Form Sections */}
         <form onSubmit={handleSubmit} className="flex-1 space-y-5 min-w-0">

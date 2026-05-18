@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -78,9 +78,9 @@ const sourceCopy = {
     message: "Please provide more details about this property.",
   },
   book_viewing: {
-    title: "Book a Viewing",
-    description: "Tell us when you would like to view this property and we will coordinate the visit.",
-    message: "I would like to book a viewing for this property. Please share available time slots.",
+    title: "Book Inspection",
+    description: "Would you like to inspect this property?",
+    message: "I would like to book an inspection for this property. Please share available inspection times.",
   },
   price_guide: {
     title: "Request Price Guide",
@@ -103,7 +103,9 @@ export function ContactModal({ isOpen, onClose, property, settings, source = "pr
   const [isLoading, setIsLoading] = useState(false);
   const [successWhatsAppUrl, setSuccessWhatsAppUrl] = useState("");
   const [selectedPurpose, setSelectedPurpose] = useState((property.purpose as "BUY" | "RENT" | "SELL") || "BUY");
+  const [preferredContactTime, setPreferredContactTime] = useState("");
   const copy = sourceCopy[source] || sourceCopy.property_detail;
+  const defaultMessage = `I'm interested in "${property.title}" located at ${property.address}. ${copy.message}`;
   const formattedPrice = new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: settings.currency,
@@ -124,18 +126,32 @@ export function ContactModal({ isOpen, onClose, property, settings, source = "pr
       preferredType: property.type || "",
       preferredLocation: property.location || "",
       budget: "",
-      message: `I'm interested in "${property.title}" located at ${property.address}. ${copy.message}`,
+      message: defaultMessage,
     },
   });
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setSuccessWhatsAppUrl("");
+    setPreferredContactTime("");
+    setValue("message", defaultMessage);
+  }, [defaultMessage, isOpen, setValue]);
 
   const onSubmit = async (data: EnquiryFormValues) => {
     setIsLoading(true);
     try {
+      const inspectionTime = preferredContactTime.trim();
+      const message =
+        source === "book_viewing" && inspectionTime
+          ? `${data.message}\n\nPreferred inspection time: ${inspectionTime}`
+          : data.message;
       const response = await fetch("/api/enquiries", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...data,
+          message,
+          preferredContactTime: inspectionTime || undefined,
           propertyId: property.id,
           source,
         }),
@@ -146,6 +162,7 @@ export function ContactModal({ isOpen, onClose, property, settings, source = "pr
         setSuccessWhatsAppUrl(result?.whatsappUrl || "");
         toast.success(result?.duplicateUpdated ? "Thanks! We updated your existing enquiry." : "Thanks! Our agent will contact you within 10 minutes.");
         reset();
+        setPreferredContactTime("");
         setSelectedPurpose((property.purpose as "BUY" | "RENT" | "SELL") || "BUY");
       } else {
         const result = await response.json().catch(() => null);
@@ -260,6 +277,19 @@ Thank you!`;
               <p className="text-[10px] text-destructive">{errors.message.message}</p>
             )}
           </div>
+
+          {source === "book_viewing" && (
+            <div className="space-y-1">
+              <Label htmlFor="preferredContactTime">Preferred inspection time</Label>
+              <Input
+                id="preferredContactTime"
+                placeholder="e.g. Saturday morning, after 5pm, or next open home"
+                value={preferredContactTime}
+                onChange={(event) => setPreferredContactTime(event.target.value)}
+                disabled={isLoading}
+              />
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
