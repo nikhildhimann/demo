@@ -20,6 +20,7 @@ import Image from "next/image";
 import { toast } from "sonner";
 import type { PublicSiteSettings } from "@/types/settings";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { buildWhatsAppUrl } from "@/lib/whatsapp";
 
 const enquirySchema = z.object({
   name: z.string().min(2, "Name is required"),
@@ -33,6 +34,24 @@ const enquirySchema = z.object({
 });
 
 type EnquiryFormValues = z.infer<typeof enquirySchema>;
+
+type ApiIssue = {
+  message?: string;
+  path?: (string | number)[];
+};
+
+function getApiErrorMessage(data: any, fallback: string) {
+  if (Array.isArray(data?.issues) && data.issues.length > 0) {
+    return data.issues
+      .map((issue: ApiIssue) => {
+        const field = issue.path?.[0] ? `${issue.path[0]}: ` : "";
+        return `${field}${issue.message || "Invalid value"}`;
+      })
+      .join("\n");
+  }
+
+  return data?.error || fallback;
+}
 
 interface ContactModalProps {
   isOpen: boolean;
@@ -130,7 +149,7 @@ export function ContactModal({ isOpen, onClose, property, settings, source = "pr
         setSelectedPurpose((property.purpose as "BUY" | "RENT" | "SELL") || "BUY");
       } else {
         const result = await response.json().catch(() => null);
-        toast.error(result?.error || "Something went wrong. Please try again.");
+        toast.error(getApiErrorMessage(result, "Something went wrong. Please try again."));
       }
     } catch (error) {
       console.error(error);
@@ -151,9 +170,8 @@ I would like to know more details about this property. Please contact me soon.
 
 Thank you!`;
     
-    if (!settings.whatsappNumber) return;
-    const encodedMessage = encodeURIComponent(whatsappMessage);
-    const whatsappUrl = `https://wa.me/${settings.whatsappNumber}?text=${encodedMessage}`;
+    const whatsappUrl = buildWhatsAppUrl(settings.whatsappNumber, whatsappMessage);
+    if (!whatsappUrl) return;
     
     window.open(whatsappUrl, '_blank');
   };

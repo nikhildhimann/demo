@@ -6,6 +6,7 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { buildWhatsAppUrl } from "@/lib/whatsapp";
 import {
   CalendarClock,
   CheckCircle2,
@@ -158,22 +159,22 @@ function toDateTimeLocal(value: string | null) {
 }
 
 function buildWhatsAppMessage(lead: Lead, businessName: string) {
-  const property = lead.property?.title || lead.preferredType || "your property requirement";
-  const location = lead.preferredLocation || lead.property?.location || lead.property?.city || "your preferred location";
-  const intro = `Hi ${lead.name}, this is ${businessName}.`;
+  const details = [
+    `Hi ${lead.name}, this is ${businessName}.`,
+    "I am following up on your property enquiry.",
+    lead.property?.title ? `Property: ${lead.property.title}` : "",
+    lead.preferredLocation || lead.property?.location || lead.property?.city ? `Preferred location: ${lead.preferredLocation || lead.property?.location || lead.property?.city}` : "",
+    lead.preferredType || lead.property?.type ? `Preferred type: ${lead.preferredType || lead.property?.type}` : "",
+    lead.budget ? `Budget: ${lead.budget}` : "",
+    `Current status: ${statusLabel(lead.status)}`,
+    "Are you available for a quick call or WhatsApp chat today?",
+  ];
 
-  if (lead.status === "NEW") return `${intro} Thanks for your enquiry about ${property}. Are you available for a quick call today to understand your budget and timeline?`;
-  if (lead.status === "CONTACTED") return `${intro} Following up on ${property}. I can share matching options in ${location}. Would you prefer WhatsApp details or a call?`;
-  if (lead.status === "INTERESTED") return `${intro} I found a few strong matches for ${property} around ${location}. Would you like to shortlist them for viewing?`;
-  if (lead.status === "SITE_VISIT") return `${intro} Confirming your site visit for ${property}. Please share your preferred date and time.`;
-  if (lead.status === "NEGOTIATION") return `${intro} I have an update on the pricing/terms for ${property}. Can we discuss the next step?`;
-  if (lead.status === "CONVERTED") return `${intro} Thank you for working with us. We are here if you need any post-deal support.`;
-  return `${intro} Checking whether you still need help with ${property}.`;
+  return details.filter(Boolean).join("\n");
 }
 
 function whatsappUrl(lead: Lead, businessName: string) {
-  const phone = lead.phone.replace(/\D/g, "");
-  return phone ? `https://wa.me/${phone}?text=${encodeURIComponent(buildWhatsAppMessage(lead, businessName))}` : "";
+  return buildWhatsAppUrl(lead.phone, buildWhatsAppMessage(lead, businessName));
 }
 
 function filtersFromSearchParams(searchParams: URLSearchParams): LeadFilters {
@@ -215,6 +216,7 @@ export function EnquiriesClient({ embedded = false }: { embedded?: boolean }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const leadId = searchParams.get("leadId") || "";
   const [leads, setLeads] = useState<Lead[]>([]);
   const [stats, setStats] = useState({ total: 0, new: 0, hot: 0, followUpsDue: 0, converted: 0, lost: 0, todayFollowUps: 0 });
   const [sources, setSources] = useState<string[]>([]);
@@ -229,6 +231,8 @@ export function EnquiriesClient({ embedded = false }: { embedded?: boolean }) {
   const [draft, setDraft] = useState({ status: "NEW" as LeadStatus, priority: "WARM" as LeadPriority, notes: "", followUpDate: "" });
   const [pagination, setPagination] = useState({ page: 1, totalPages: 1, totalCount: 0 });
   const [filters, setFilters] = useState<LeadFilters>(() => filtersFromSearchParams(searchParams));
+  const [searchInput, setSearchInput] = useState(() => filtersFromSearchParams(searchParams).search);
+  const [openedLeadId, setOpenedLeadId] = useState("");
   const [showMobileFilters, setShowMobileFilters] = useState(false);
 
   const fetchLeads = useCallback(async () => {
@@ -261,15 +265,26 @@ export function EnquiriesClient({ embedded = false }: { embedded?: boolean }) {
   useEffect(() => {
     const nextFilters = filtersFromSearchParams(searchParams);
     setFilters((prev) => (JSON.stringify(prev) === JSON.stringify(nextFilters) ? prev : nextFilters));
+    setSearchInput(nextFilters.search);
     setActiveStat(statFromFilters(nextFilters));
   }, [searchParams]);
 
-  const applyFilters = (nextFilters: LeadFilters, nextActiveStat: StatCardId | null = statFromFilters(nextFilters)) => {
+  const applyFilters = useCallback((nextFilters: LeadFilters, nextActiveStat: StatCardId | null = statFromFilters(nextFilters)) => {
     setFilters(nextFilters);
     setActiveStat(nextActiveStat);
     const params = buildQuery(nextFilters);
     router.replace(params.toString() ? `${pathname}?${params.toString()}` : pathname, { scroll: false });
-  };
+  }, [pathname, router]);
+
+  useEffect(() => {
+    if (searchInput === filters.search) return;
+    const timer = window.setTimeout(() => {
+      const nextFilters = { ...filters, search: searchInput, page: "1" };
+      applyFilters(nextFilters);
+    }, 400);
+
+    return () => window.clearTimeout(timer);
+  }, [applyFilters, filters, searchInput]);
 
   const updateFilter = (key: keyof LeadFilters, value: string) => {
     applyFilters({
@@ -297,7 +312,7 @@ export function EnquiriesClient({ embedded = false }: { embedded?: boolean }) {
     applyFilters(base, stat);
   };
 
-  const openLead = (lead: Lead) => {
+  const openLead = useCallback((lead: Lead) => {
     setSelectedLead(lead);
     setDraft({
       status: lead.status,
@@ -305,7 +320,40 @@ export function EnquiriesClient({ embedded = false }: { embedded?: boolean }) {
       notes: lead.notes || "",
       followUpDate: toDateTimeLocal(lead.followUpDate),
     });
-  };
+  }, []);
+
+  useEffect(() => {
+    if (!leadId || selectedLead?.id === leadId || openedLeadId === leadId) return;
+
+    const existing = leads.find((lead) => lead.id === leadId);
+    if (existing) {
+      openLead(existing);
+      setOpenedLeadId(leadId);
+      return;
+    }
+
+    let cancelled = false;
+
+    async function fetchLeadById() {
+      try {
+        const response = await fetch(`/api/admin/enquiries?leadId=${encodeURIComponent(leadId)}&limit=1`);
+        const data = await response.json();
+        const lead = data.enquiries?.find((entry: Lead) => entry.id === leadId) || data.enquiries?.[0];
+        if (!cancelled && lead) {
+          openLead(lead);
+        }
+        if (!cancelled) setOpenedLeadId(leadId);
+      } catch {
+        if (!cancelled) setOpenedLeadId(leadId);
+      }
+    }
+
+    fetchLeadById();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [leadId, leads, openLead, openedLeadId, selectedLead?.id]);
 
   const updateLead = async () => {
     if (!selectedLead) return;
@@ -352,7 +400,7 @@ export function EnquiriesClient({ embedded = false }: { embedded?: boolean }) {
     }
 
     try {
-      const response = await fetch(`/api/admin/enquiries?search=${encodeURIComponent(item.phone)}&limit=1`);
+      const response = await fetch(`/api/admin/enquiries?leadId=${encodeURIComponent(item.id)}&limit=1`);
       const data = await response.json();
       const lead = data.enquiries?.find((entry: Lead) => entry.id === item.id) || data.enquiries?.[0];
       if (lead) openLead(lead);
@@ -396,7 +444,15 @@ export function EnquiriesClient({ embedded = false }: { embedded?: boolean }) {
     { id: "converted" as const, title: "Converted", value: stats.converted, icon: CheckCircle2, color: "text-green-600", active: activeStat === "converted" },
     { id: "lost" as const, title: "Lost Leads", value: stats.lost, icon: Trash2, color: "text-slate-500", active: activeStat === "lost" },
   ];
-  const emptyLeadsMessage = filters.followUp === "due" ? "No follow-ups are due." : "No leads found.";
+  const followUpFilterValue = filters.followUp === "all" ? filters.date : filters.followUp;
+  const emptyLeadsMessage =
+    filters.followUp === "today"
+      ? "No follow-ups today."
+      : filters.followUp === "overdue"
+        ? "No overdue follow-ups."
+        : filters.followUp === "due"
+          ? "No follow-ups are due."
+          : "No leads found.";
 
   return (
     <div id={embedded ? "leads" : undefined} className={embedded ? "space-y-6" : "w-full min-h-screen space-y-6 p-4 lg:p-8 bg-slate-50/50"}>
@@ -449,7 +505,7 @@ export function EnquiriesClient({ embedded = false }: { embedded?: boolean }) {
               <div className="flex flex-col md:flex-row gap-3">
                 <div className="relative flex-1">
                   <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input className="pl-9 h-10 bg-white border-slate-200" placeholder="Search leads..." value={filters.search} onChange={(event) => updateFilter("search", event.target.value)} />
+                  <Input className="pl-9 h-10 bg-white border-slate-200" placeholder="Search leads..." value={searchInput} onChange={(event) => setSearchInput(event.target.value)} />
                 </div>
                 
                 {/* Mobile Filter Toggle Button */}
@@ -477,10 +533,13 @@ export function EnquiriesClient({ embedded = false }: { embedded?: boolean }) {
                 <FilterSelect value={filters.source} onChange={(value) => updateFilter("source", value)} placeholder="Source" items={sources.map((source) => [source, source])} />
                 <FilterSelect value={filters.propertyId} onChange={(value) => updateFilter("propertyId", value)} placeholder="Property" items={properties.map((property) => [property.id, property.title])} />
                 <FilterSelect
-                  value={filters.followUp === "due" ? "due" : filters.date}
-                  onChange={(value) => value === "due" ? updateFilter("followUp", "due") : updateFilter("date", value)}
+                  value={followUpFilterValue === "today" && filters.date === "today" ? "created_today" : followUpFilterValue}
+                  onChange={(value) => {
+                    if (value === "created_today") return updateFilter("date", "today");
+                    return ["due", "today", "overdue"].includes(value) ? updateFilter("followUp", value) : updateFilter("date", value);
+                  }}
                   placeholder="Date"
-                  items={[["today", "Today"], ["week", "7 Days"], ["month", "30 Days"], ["due", "Follow-ups Due"]]}
+                  items={[["created_today", "Created Today"], ["week", "Created 7 Days"], ["month", "Created 30 Days"], ["due", "Follow-ups Due"], ["today", "Follow-ups Today"], ["overdue", "Overdue Follow-ups"]]}
                 />
                 <Button variant="ghost" size="sm" onClick={resetFilters} className="h-10 text-xs text-muted-foreground hover:text-slate-900 border border-dashed border-slate-300 hover:border-slate-400">
                   Reset Filters

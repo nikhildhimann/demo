@@ -1,6 +1,6 @@
 # Real Estate Platform - Package 2 (Growth System)
 
-A high-performance, SEO-optimized, Next.js 14 real estate platform with an integrated CMS, CRM, and AI Property Assistant. 
+A high-performance, SEO-optimized, Next.js 16 real estate platform with an integrated CMS, CRM, and AI Property Assistant. 
 
 ## Key Features
 - **Public Website:** Stunning UI, responsive design, fast performance (optimized Core Web Vitals).
@@ -11,7 +11,7 @@ A high-performance, SEO-optimized, Next.js 14 real estate platform with an integ
 - **Image Optimization:** Automated Cloudinary integration and Next.js Image optimization.
 
 ## Tech Stack
-- Framework: Next.js 14 (App Router)
+- Framework: Next.js 16 (App Router)
 - Language: TypeScript
 - Styling: Tailwind CSS & Framer Motion
 - Database: PostgreSQL (via Prisma ORM)
@@ -38,18 +38,18 @@ Fill out `.env` with:
 - `DATABASE_URL`: Your PostgreSQL connection string.
 - `NEXTAUTH_SECRET`: Run `openssl rand -base64 32` to generate a secure secret.
 - `NEXTAUTH_URL`: Your site URL (e.g., `http://localhost:3000`).
-- `NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`: From your Cloudinary dashboard.
+- `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`: From your Cloudinary dashboard.
 - `RESEND_API_KEY`: From your Resend dashboard.
 
 ### 3. Install Dependencies
 ```bash
-npm install
+npm ci
 ```
 
 ### 4. Database Setup
 Run Prisma migrations to create the tables in your database:
 ```bash
-npx prisma migrate dev --name init
+npm run db:migrate
 ```
 Generate the Prisma Client:
 ```bash
@@ -59,7 +59,7 @@ npx prisma generate
 ### 5. Seed Database (Optional)
 To set up your initial admin account and site settings:
 ```bash
-npm run seed
+npm run db:seed
 ```
 
 ### 6. Run Development Server
@@ -75,7 +75,7 @@ Open `http://localhost:3000` to view the website. Access the admin panel at `/lo
 1. Push your code to a GitHub repository.
 2. Go to [Vercel](https://vercel.com/) and create a new project.
 3. Import your GitHub repository.
-4. Set the Build Command to `npm run build` and Install Command to `npm install`.
+4. Set the Build Command to `npm run build` and Install Command to `npm ci`.
 5. Add all Environment Variables from your `.env` file into the Vercel dashboard.
 6. Click **Deploy**.
 

@@ -41,6 +41,7 @@ export function ImageGallery({ images, title }: ImageGalleryProps) {
                 fill
                 className="object-cover cursor-pointer hover:scale-105 transition-transform duration-700"
                 onClick={() => setIsFullscreen(true)}
+                unoptimized
               />
             </motion.div>
           </AnimatePresence>
@@ -82,6 +83,7 @@ export function ImageGallery({ images, title }: ImageGalleryProps) {
                 alt={`Thumbnail ${idx + 1}`}
                 fill
                 className="object-cover"
+                unoptimized
               />
             </button>
           ))}
@@ -117,6 +119,7 @@ export function ImageGallery({ images, title }: ImageGalleryProps) {
                   alt={`${title} - Fullscreen`}
                   fill
                   className="object-contain"
+                  unoptimized
                 />
               </motion.div>
 

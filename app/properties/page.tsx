@@ -39,7 +39,7 @@ export default async function PropertiesPage({
         : isLegacyBuyType
           ? "AVAILABLE"
           : isLegacyRentType
-            ? "RENTED"
+            ? "AVAILABLE"
             : "",
     min: typeof params.min === "string" ? params.min : typeof params.minPrice === "string" ? params.minPrice : "",
     max: typeof params.max === "string" ? params.max : typeof params.maxPrice === "string" ? params.maxPrice : "",

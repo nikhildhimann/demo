@@ -64,7 +64,7 @@ export async function PATCH(
     return NextResponse.json(updatedEnquiry);
   } catch (error: any) {
     if (error.name === "ZodError") {
-      return NextResponse.json(error.errors, { status: 400 });
+      return NextResponse.json(error.issues, { status: 400 });
     }
     console.error("[ADMIN_ENQUIRY_PATCH]", error);
     return NextResponse.json({ error: error.message || "Internal Server Error" }, { status: 500 });

@@ -31,6 +31,7 @@ export async function POST(req: NextRequest) {
     if (!session) return NextResponse.json({ error: "Admin access required" }, { status: 401 });
 
     const data = normalizePropertyInput(await req.json());
+    const featured = data.status === "AVAILABLE" ? data.featured : false;
     const property = await prisma.property.create({
       data: {
         title: data.title,
@@ -52,7 +53,7 @@ export async function POST(req: NextRequest) {
         zipCode: data.zipCode,
         country: data.country,
         amenities: data.amenities,
-        featured: data.featured,
+        featured,
         authorId: session.user.id,
         images: {
           create: data.images.map((image, index) => ({
@@ -70,7 +71,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(property, { status: 201 });
   } catch (error: any) {
     if (error.name === "ZodError") {
-      return NextResponse.json({ error: "Validation failed", issues: error.errors }, { status: 400 });
+      return NextResponse.json({ error: "Validation failed", issues: error.issues }, { status: 400 });
     }
     if (error.code === "P2002") {
       return NextResponse.json({ error: "A property with this slug already exists." }, { status: 409 });

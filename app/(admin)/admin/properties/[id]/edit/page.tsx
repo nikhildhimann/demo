@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import prisma from "@/lib/prisma";
 import { requireAdmin } from "@/lib/admin";
 import { PropertyForm } from "@/components/admin/PropertyForm";
+import { getSiteSettings } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
 
@@ -9,10 +10,13 @@ export default async function EditPropertyPage({ params }: { params: Promise<{ i
   await requireAdmin();
   const { id } = await params;
 
-  const property = await prisma.property.findUnique({
-    where: { id },
-    include: { images: { orderBy: { order: "asc" } } },
-  });
+  const [property, settings] = await Promise.all([
+    prisma.property.findUnique({
+      where: { id },
+      include: { images: { orderBy: { order: "asc" } } },
+    }),
+    getSiteSettings(),
+  ]);
 
   if (!property) notFound();
 
@@ -22,7 +26,7 @@ export default async function EditPropertyPage({ params }: { params: Promise<{ i
         <h1 className="text-3xl font-bold tracking-tight">Edit Property</h1>
         <p className="text-muted-foreground">Update listing details, images, featured placement, and status.</p>
       </div>
-      <PropertyForm property={property} />
+      <PropertyForm property={property} currency={settings.currency} />
     </div>
   );
 }

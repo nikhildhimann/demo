@@ -19,7 +19,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function Home() {
   const [featuredProperties, settings] = await Promise.all([
-    getFeaturedProperties(6),
+    getFeaturedProperties(3),
     getSiteSettings(),
   ]);
 

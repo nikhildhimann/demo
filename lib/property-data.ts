@@ -55,6 +55,9 @@ export type PropertyCardData = {
 
 const fallbackImage =
   "https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&w=800";
+const publicStatuses = ["AVAILABLE", "SOLD", "RENTED"];
+const publicTypes = ["APARTMENT", "HOUSE", "VILLA", "TOWNHOUSE", "COMMERCIAL", "LAND", "PLOT"];
+const publicPurposes = ["BUY", "RENT", "SELL"];
 
 export function toPropertyCardData(property: {
   id: string;
@@ -98,10 +101,10 @@ export async function getFeaturedProperties(limit = 3) {
     return await prisma.property.findMany({
       where: {
         deletedAt: null,
-        featured: true,
+        status: "AVAILABLE",
       },
       include: propertyInclude,
-      orderBy: { createdAt: "desc" },
+      orderBy: [{ featured: "desc" }, { createdAt: "desc" }],
       take: limit,
     });
   } catch (error) {
@@ -133,9 +136,9 @@ export async function getProperties(filters: {
     status: { not: "DRAFT" },
   };
 
-  if (filters.status) where.status = filters.status;
-  if (filters.type) where.type = filters.type;
-  if (filters.purpose) where.purpose = filters.purpose;
+  if (filters.status && publicStatuses.includes(filters.status)) where.status = filters.status;
+  if (filters.type && publicTypes.includes(filters.type)) where.type = filters.type;
+  if (filters.purpose && publicPurposes.includes(filters.purpose)) where.purpose = filters.purpose;
   if (filters.featured === "true") where.featured = true;
   const location = filters.location || filters.city;
   if (location) {

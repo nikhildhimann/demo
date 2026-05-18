@@ -6,6 +6,7 @@ import { MessageCircle, Phone, Mail } from "lucide-react";
 import { ContactModal } from "./ContactModal";
 import { formatPrice } from "@/lib/utils";
 import type { PublicSiteSettings } from "@/types/settings";
+import { buildWhatsAppUrl } from "@/lib/whatsapp";
 
 interface StickyContactBarProps {
   property: {
@@ -25,9 +26,8 @@ export function StickyContactBar({ property, settings }: StickyContactBarProps) 
 
   const handleWhatsApp = () => {
     const message = `Hi, I'm interested in "${property.title}" (${formatPrice(property.price, settings.currency)}) located at ${property.address}. Source: whatsapp_click. ${window.location.href}`;
-    const phone = (settings.whatsappNumber || property.phone || "").replace(/\D/g, "");
-    if (!phone) return;
-    const url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+    const url = buildWhatsAppUrl(settings.whatsappNumber || property.phone || "", message);
+    if (!url) return;
     window.open(url, "_blank");
   };
 

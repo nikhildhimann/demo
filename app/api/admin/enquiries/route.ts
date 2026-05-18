@@ -2,15 +2,24 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
-import { enquiryStatusSchema } from "@/lib/validators";
 import { getSiteSettings } from "@/lib/settings";
+
+const validLeadStatuses = ["NEW", "CONTACTED", "INTERESTED", "SITE_VISIT", "NEGOTIATION", "CONVERTED", "LOST", "SPAM"] as const;
+const validLeadPriorities = ["HOT", "WARM", "COLD"] as const;
+const activeFollowUpStatus = { notIn: ["CONVERTED", "LOST", "SPAM"] };
+const validFollowUpFilters = ["due", "today", "overdue"] as const;
 
 function csvEscape(value: unknown) {
   const text = value === null || value === undefined ? "" : String(value);
   return `"${text.replace(/"/g, '""')}"`;
 }
 
-function buildLeadWhere(searchParams: URLSearchParams) {
+function isAllowedValue<T extends readonly string[]>(value: string | null, allowed: T): value is T[number] {
+  return Boolean(value && (allowed as readonly string[]).includes(value));
+}
+
+function buildLeadWhere(searchParams: URLSearchParams, dates: ReturnType<typeof getLeadDateWindow>) {
+  const leadId = searchParams.get("leadId");
   const status = searchParams.get("status");
   const priority = searchParams.get("priority");
   const source = searchParams.get("source");
@@ -20,21 +29,27 @@ function buildLeadWhere(searchParams: URLSearchParams) {
   const search = searchParams.get("search");
   const where: any = {};
 
-  if (status && status !== "all") where.status = status;
-  if (priority && priority !== "all") where.priority = priority;
+  if (leadId && leadId !== "all") where.id = leadId;
+  if (isAllowedValue(status, validLeadStatuses)) where.status = status;
+  if (isAllowedValue(priority, validLeadPriorities)) where.priority = priority;
   if (source && source !== "all") where.source = source;
   if (propertyId && propertyId !== "all") where.propertyId = propertyId;
+
   if (followUp === "due") {
-    where.followUpDate = { lte: new Date() };
-    where.status = { notIn: ["CONVERTED", "LOST", "SPAM"] };
-  }
-  if (date && date !== "all") {
-    const now = new Date();
-    const start = new Date(now);
+    where.followUpDate = { lte: dates.now };
+    where.status = activeFollowUpStatus;
+  } else if (followUp === "today") {
+    where.followUpDate = { gte: dates.startOfToday, lte: dates.endOfToday };
+    where.status = activeFollowUpStatus;
+  } else if (followUp === "overdue") {
+    where.followUpDate = { lt: dates.startOfToday };
+    where.status = activeFollowUpStatus;
+  } else if (date && date !== "all") {
+    const start = new Date(dates.now);
     if (date === "today") start.setHours(0, 0, 0, 0);
-    if (date === "week") start.setDate(now.getDate() - 7);
-    if (date === "month") start.setMonth(now.getMonth() - 1);
-    where.createdAt = { gte: start };
+    if (date === "week") start.setDate(dates.now.getDate() - 7);
+    if (date === "month") start.setMonth(dates.now.getMonth() - 1);
+    if (["today", "week", "month"].includes(date)) where.createdAt = { gte: start };
   }
   if (search) {
     (where as any).OR = [
@@ -47,6 +62,12 @@ function buildLeadWhere(searchParams: URLSearchParams) {
   }
 
   return where;
+}
+
+function getLeadOrderBy(searchParams: URLSearchParams) {
+  return isAllowedValue(searchParams.get("followUp"), validFollowUpFilters)
+    ? ({ followUpDate: "asc" } as const)
+    : ({ createdAt: "desc" } as const);
 }
 
 function getLeadDateWindow() {
@@ -89,8 +110,6 @@ async function optionalPrismaRead<T>(operation: () => Promise<T>, fallback: T, l
 }
 
 async function getLeadStats(where: any, dates: ReturnType<typeof getLeadDateWindow>) {
-  const activeFollowUpStatus = { notIn: ["CONVERTED", "LOST", "SPAM"] };
-
   const total = await optionalPrismaRead(() => prisma.enquiry.count({ where }), 0, "COUNT_STATS_TOTAL");
   const newLeads = await optionalPrismaRead(() => prisma.enquiry.count({ where: { ...where, status: "NEW" } }), 0, "COUNT_NEW");
   const hot = await optionalPrismaRead(() => prisma.enquiry.count({ where: { ...where, priority: "HOT" } }), 0, "COUNT_HOT");
@@ -147,14 +166,15 @@ export async function GET(req: NextRequest) {
     const page = parseInt(searchParams.get("page") || "1");
     const limit = Math.min(parseInt(searchParams.get("limit") || "25"), 100);
     const skip = (page - 1) * limit;
-    const where = buildLeadWhere(searchParams);
     const dates = getLeadDateWindow();
+    const where = buildLeadWhere(searchParams, dates);
+    const orderBy = getLeadOrderBy(searchParams);
 
     if (exportCsv) {
       const leads = await prisma.enquiry.findMany({
         where,
         include: { property: { select: { title: true, slug: true, city: true, type: true, purpose: true, price: true } as any } },
-        orderBy: { createdAt: "desc" },
+        orderBy,
         take: 5000,
       });
       const headers = ["Created", "Updated", "Name", "Phone", "Email", "Status", "Priority", "Source", "Property", "Budget", "Preferred Location", "Preferred Type", "Follow Up", "Message", "Notes"];
@@ -192,7 +212,7 @@ export async function GET(req: NextRequest) {
             select: { id: true, title: true, slug: true, city: true, location: true, type: true, purpose: true, price: true } as any,
           },
         },
-        orderBy: { createdAt: "desc" },
+        orderBy,
         skip,
         take: limit,
       }),
@@ -254,62 +274,5 @@ export async function GET(req: NextRequest) {
     });
   } catch (error: any) {
     return adminErrorResponse(error, "Unable to load leads right now. Please refresh in a moment.");
-  }
-}
-
-export async function PATCH(req: NextRequest) {
-  try {
-    const session = await getServerSession(authOptions);
-    if (!session || session.user.role !== "ADMIN") {
-      return NextResponse.json({ error: "Admin access required" }, { status: 401 });
-    }
-
-    const { searchParams } = new URL(req.url);
-    const enquiryId = searchParams.get("id");
-
-    if (!enquiryId) {
-      return new NextResponse("Enquiry ID is required", { status: 400 });
-    }
-
-    const body = await req.json();
-    const validatedData = enquiryStatusSchema.parse(body);
-
-    const updatedEnquiry = await prisma.enquiry.update({
-      where: { id: enquiryId },
-      data: { status: validatedData.status } as any,
-    });
-
-    return NextResponse.json(updatedEnquiry);
-  } catch (error: any) {
-    if (error.name === "ZodError") {
-      return NextResponse.json(error.errors, { status: 400 });
-    }
-    console.error("[ADMIN_ENQUIRIES_PATCH]", error);
-    return NextResponse.json({ error: error.message || "Internal Server Error" }, { status: 500 });
-  }
-}
-
-export async function DELETE(req: NextRequest) {
-  try {
-    const session = await getServerSession(authOptions);
-    if (!session || session.user.role !== "ADMIN") {
-      return NextResponse.json({ error: "Admin access required" }, { status: 401 });
-    }
-
-    const { searchParams } = new URL(req.url);
-    const enquiryId = searchParams.get("id");
-
-    if (!enquiryId) {
-      return new NextResponse("Enquiry ID is required", { status: 400 });
-    }
-
-    await prisma.enquiry.delete({
-      where: { id: enquiryId },
-    });
-
-    return new NextResponse(null, { status: 204 });
-  } catch (error: any) {
-    console.error("[ADMIN_ENQUIRIES_DELETE]", error);
-    return NextResponse.json({ error: error.message || "Internal Server Error" }, { status: 500 });
   }
 }

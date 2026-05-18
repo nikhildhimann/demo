@@ -21,6 +21,7 @@ type LeadInput = {
   purpose?: string | null;
   preferredContactTime?: string | null;
   priority?: string | null;
+  propertyTitle?: string | null;
 };
 
 function clean(value?: string | null) {
@@ -32,29 +33,36 @@ function normalizePhone(value: string) {
 }
 
 export function assignLeadPriority(input: LeadInput) {
-  const hasPropertyOrBudget = Boolean(input.propertyId || clean(input.budget));
-  const isViewingRequest = input.source === "book_viewing";
+  const source = clean(input.source);
+  const hasProperty = Boolean(clean(input.propertyId));
+  const hasBudget = Boolean(clean(input.budget));
+  const hasPreferredLocation = Boolean(clean(input.preferredLocation));
   const hasContact = Boolean(clean(input.phone));
   const hasMessage = Boolean(clean(input.message));
   const hasEmail = Boolean(clean(input.email));
 
-  if (hasContact && hasPropertyOrBudget && isViewingRequest) return LeadPriority.HOT;
-  if (hasContact && hasPropertyOrBudget) return LeadPriority.HOT;
+  if (source === "book_viewing") return LeadPriority.HOT;
+  if (source === "seller_appraisal") return LeadPriority.HOT;
+  if (source === "property_detail" && hasProperty) return LeadPriority.HOT;
+  if (hasBudget && hasPreferredLocation) return LeadPriority.HOT;
   if (hasContact && (hasEmail || hasMessage)) return LeadPriority.WARM;
   return LeadPriority.COLD;
 }
 
 function buildDuplicateNote(input: LeadInput, existingSource?: string | null) {
   const timestamp = new Date().toISOString();
+  const message = clean(input.message);
+  const messageSummary = message && message.length > 180 ? `${message.slice(0, 177)}...` : message;
   return [
     `Duplicate lead update (${timestamp})`,
     `Source: ${clean(input.source) || "website"}`,
     existingSource ? `Previous source: ${existingSource}` : "",
+    input.propertyTitle ? `Property: ${input.propertyTitle}` : "",
     input.purpose ? `Purpose: ${input.purpose}` : "",
     input.preferredType ? `Preferred type: ${input.preferredType}` : "",
     input.preferredLocation ? `Preferred location: ${input.preferredLocation}` : "",
     input.budget ? `Budget: ${input.budget}` : "",
-    input.message ? `Message: ${input.message}` : "",
+    messageSummary ? `Message: ${messageSummary}` : "",
   ].filter(Boolean).join("\n");
 }
 
@@ -125,4 +133,3 @@ export async function upsertLeadFromPublicForm(input: LeadInput) {
 
   return { enquiry, isDuplicate: true };
 }
-

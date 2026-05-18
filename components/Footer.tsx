@@ -87,7 +87,7 @@ export function Footer({ settings }: { settings: PublicSiteSettings }) {
               <li><Link href="/properties" className={footerLinkClass}>Properties <ArrowUpRight className={footerArrowClass} /></Link></li>
               <li><Link href="/properties?status=AVAILABLE" className={footerLinkClass}>Buy <ArrowUpRight className={footerArrowClass} /></Link></li>
               <li><Link href="/sell" className={footerLinkClass}>Sell <ArrowUpRight className={footerArrowClass} /></Link></li>
-              <li><Link href="/properties?status=RENTED" className={footerLinkClass}>Rent <ArrowUpRight className={footerArrowClass} /></Link></li>
+              <li><Link href="/properties?purpose=RENT&status=AVAILABLE" className={footerLinkClass}>Rent <ArrowUpRight className={footerArrowClass} /></Link></li>
               <li><Link href="/contact" className={footerLinkClass}>Contact Us <ArrowUpRight className={footerArrowClass} /></Link></li>
             </ul>
           </div>

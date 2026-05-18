@@ -10,6 +10,7 @@ import { Bed, Bath, Square, MapPin, Heart, MessageCircle, Eye } from "lucide-rea
 import { useWishlist } from "@/hooks/useWishlist";
 import type { PublicSiteSettings } from "@/types/settings";
 import { ContactModal } from "@/components/property/ContactModal";
+import { buildWhatsAppUrl } from "@/lib/whatsapp";
 
 interface PremiumPropertyCardProps {
   property: {
@@ -64,9 +65,7 @@ Source: whatsapp_click
 
 Please provide more details.`;
   
-  const whatsappUrl = settings.whatsappNumber
-    ? `https://wa.me/${settings.whatsappNumber}?text=${encodeURIComponent(whatsappMessage)}`
-    : "";
+  const whatsappUrl = buildWhatsAppUrl(settings.whatsappNumber, whatsappMessage);
 
   return (
     <motion.article
@@ -90,6 +89,7 @@ Please provide more details.`;
             fill
             sizes="(min-width: 1280px) 33vw, (min-width: 768px) 50vw, 100vw"
             className="object-cover transition-transform duration-700 ease-out group-hover:scale-110"
+            unoptimized
           />
         <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-black/10" />
 

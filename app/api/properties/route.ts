@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { PrismaClient, PropertyStatus, PropertyType } from "@prisma/client";
+import { PropertyStatus, PropertyType } from "@prisma/client";
 type FallbackPropertyPurpose = "BUY" | "RENT" | "SELL";
-import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
-import { normalizePropertyInput } from "@/lib/property-admin";
-import { revalidatePath } from "next/cache";
+
+const publicStatuses: PropertyStatus[] = ["AVAILABLE", "SOLD", "RENTED"];
+const publicTypes: PropertyType[] = ["APARTMENT", "HOUSE", "VILLA", "TOWNHOUSE", "COMMERCIAL", "LAND", "PLOT"];
+const publicPurposes: FallbackPropertyPurpose[] = ["BUY", "RENT", "SELL"];
 
 export async function GET(req: NextRequest) {
   try {
@@ -17,9 +17,9 @@ export async function GET(req: NextRequest) {
     const skip = (page - 1) * limit;
 
     // Filters
-    const status = searchParams.get("status") as PropertyStatus | null;
+    const statusParam = searchParams.get("status") as PropertyStatus | null;
     const type = searchParams.get("type") as PropertyType | null;
-    const purpose = searchParams.get("purpose") as FallbackPropertyPurpose | null;
+    const purposeParam = searchParams.get("purpose") as FallbackPropertyPurpose | null;
     const city = searchParams.get("city");
     const featured = searchParams.get("featured") === "true";
     const minRaw = searchParams.get("min") || searchParams.get("minPrice");
@@ -37,9 +37,9 @@ export async function GET(req: NextRequest) {
       status: { not: "DRAFT" },
     };
 
-    if (status) where.status = status;
-    if (type) where.type = type;
-    if (purpose) where.purpose = purpose;
+    if (statusParam && publicStatuses.includes(statusParam)) where.status = statusParam;
+    if (type && publicTypes.includes(type)) where.type = type;
+    if (purposeParam && publicPurposes.includes(purposeParam)) where.purpose = purposeParam;
     const locationQuery = location || city;
     if (locationQuery) {
       where.AND = [
@@ -107,66 +107,6 @@ export async function GET(req: NextRequest) {
     });
   } catch (error) {
     console.error("[PROPERTIES_GET]", error);
-    return new NextResponse("Internal Server Error", { status: 500 });
-  }
-}
-
-export async function POST(req: NextRequest) {
-  try {
-    const session = await getServerSession(authOptions);
-
-    if (!session || session.user.role !== "ADMIN") {
-      return NextResponse.json({ error: "Admin access required" }, { status: 401 });
-    }
-
-    const body = await req.json();
-    const validatedData = normalizePropertyInput(body);
-
-    const property = await prisma.property.create({
-      data: {
-        title: validatedData.title,
-        slug: validatedData.slug,
-        description: validatedData.description,
-        price: validatedData.price,
-        // @ts-ignore: IDE cache bug
-        purpose: validatedData.purpose as any,
-        status: validatedData.status,
-        type: validatedData.type,
-        bedrooms: validatedData.bedrooms,
-        bathrooms: validatedData.bathrooms,
-        area: validatedData.area,
-        size: validatedData.size,
-        address: validatedData.address,
-        city: validatedData.city,
-        state: validatedData.state,
-        zip: validatedData.zip,
-        zipCode: validatedData.zipCode,
-        country: validatedData.country,
-        amenities: validatedData.amenities,
-        featured: validatedData.featured,
-        authorId: session.user.id,
-        images: {
-          create: validatedData.images.map((img: any, index: number) => ({
-            url: img.url,
-            publicId: img.publicId || "legacy-image-" + Date.now() + "-" + index,
-            order: img.order || index,
-          })),
-        },
-      },
-      include: {
-        images: true,
-      },
-    });
-
-    revalidatePath("/");
-    revalidatePath("/properties");
-
-    return NextResponse.json(property);
-  } catch (error: any) {
-    if (error.name === "ZodError") {
-      return NextResponse.json(error.errors, { status: 400 });
-    }
-    console.error("[PROPERTIES_POST]", error);
     return new NextResponse("Internal Server Error", { status: 500 });
   }
 }

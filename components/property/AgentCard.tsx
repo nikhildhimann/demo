@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Phone, MessageCircle, Mail, Calendar, UserCheck } from "lucide-react";
 import { ContactModal } from "./ContactModal";
 import type { PublicSiteSettings } from "@/types/settings";
+import { buildWhatsAppUrl } from "@/lib/whatsapp";
 
 interface AgentCardProps {
   property: {
@@ -27,12 +28,13 @@ interface AgentCardProps {
 export function AgentCard({ property, agent, settings }: AgentCardProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalSource, setModalSource] = useState<"property_detail" | "book_viewing" | "price_guide">("property_detail");
+  const phone = agent.phone?.trim();
+  const email = agent.email?.trim();
 
   const handleWhatsApp = () => {
     const message = `Hi ${settings.businessName}, I am interested in this property: "${property.title}" located at ${property.address}. Source: whatsapp_click.`;
-    const phone = settings.whatsappNumber || agent.phone.replace(/\D/g, "");
-    if (!phone) return;
-    const url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+    const url = buildWhatsAppUrl(settings.whatsappNumber || phone || "", message);
+    if (!url) return;
     window.open(url, "_blank");
   };
 
@@ -60,16 +62,19 @@ export function AgentCard({ property, agent, settings }: AgentCardProps) {
         <Button 
           variant="outline" 
           className="h-11 w-full justify-start border-slate-200 bg-white px-4 text-slate-700 hover:bg-slate-50 hover:text-slate-900" 
-          onClick={() => window.location.href = `tel:${agent.phone}`}
+          onClick={() => {
+            if (phone) window.location.href = `tel:${phone}`;
+          }}
+          disabled={!phone}
         >
           <Phone className="mr-3 h-4 w-4 text-blue-600" />
-          <span className="font-medium">{agent.phone}</span>
+          <span className="font-medium">{phone || "Phone not configured"}</span>
         </Button>
         <Button 
           variant="outline" 
           className="h-11 w-full justify-start border-slate-200 bg-white px-4 text-slate-700 hover:bg-slate-50 hover:text-slate-900" 
           onClick={handleWhatsApp}
-          disabled={!settings.whatsappNumber && !agent.phone}
+          disabled={!settings.whatsappNumber && !phone}
         >
           <MessageCircle className="mr-3 h-4 w-4 text-emerald-500" />
           <span className="font-medium">WhatsApp</span>
@@ -77,10 +82,13 @@ export function AgentCard({ property, agent, settings }: AgentCardProps) {
         <Button 
           variant="outline" 
           className="h-11 w-full justify-start border-slate-200 bg-white px-4 text-slate-700 hover:bg-slate-50 hover:text-slate-900" 
-          onClick={() => window.location.href = `mailto:${agent.email}`}
+          onClick={() => {
+            if (email) window.location.href = `mailto:${email}`;
+          }}
+          disabled={!email}
         >
           <Mail className="mr-3 h-4 w-4 text-rose-500" />
-          <span className="font-medium">Email Agent</span>
+          <span className="font-medium">{email ? "Email Agent" : "Email not configured"}</span>
         </Button>
       </div>
 
@@ -119,7 +127,7 @@ export function AgentCard({ property, agent, settings }: AgentCardProps) {
         <Button 
           className="h-11 w-full bg-emerald-500 font-bold text-white shadow-md shadow-emerald-500/20 hover:bg-emerald-600" 
           onClick={handleWhatsApp}
-          disabled={!settings.whatsappNumber && !agent.phone}
+          disabled={!settings.whatsappNumber && !phone}
         >
           <MessageCircle className="mr-2 h-4 w-4" />
           WhatsApp Agent

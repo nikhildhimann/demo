@@ -4,6 +4,14 @@ import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { normalizePropertyInput } from "@/lib/property-admin";
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
+
+const quickPropertyUpdateSchema = z.object({
+  status: z.enum(["AVAILABLE", "SOLD", "RENTED", "DRAFT"]).optional(),
+  featured: z.boolean().optional(),
+}).refine((data) => data.status !== undefined || data.featured !== undefined, {
+  message: "At least one field is required",
+});
 
 async function assertAdmin() {
   const session = await getServerSession(authOptions);
@@ -30,11 +38,27 @@ export async function PATCH(
       typeof body === "object" &&
       Object.keys(body).every((key) => key === "status" || key === "featured")
     ) {
+      const data = quickPropertyUpdateSchema.parse(body);
+      const existingProperty = await prisma.property.findUnique({
+        where: { id },
+        select: { status: true },
+      });
+
+      if (!existingProperty) {
+        return new NextResponse("Not Found", { status: 404 });
+      }
+
+      const nextStatus = data.status || existingProperty.status;
+
+      if (data.featured === true && nextStatus !== "AVAILABLE") {
+        return NextResponse.json({ error: "Only available properties can be featured." }, { status: 400 });
+      }
+
       const property = await prisma.property.update({
         where: { id },
         data: {
-          status: body.status,
-          featured: typeof body.featured === "boolean" ? body.featured : undefined,
+          status: data.status,
+          featured: nextStatus === "AVAILABLE" ? data.featured : false,
         },
         include: { images: true },
       });
@@ -46,6 +70,7 @@ export async function PATCH(
     }
 
     const data = normalizePropertyInput(body);
+    const featured = data.status === "AVAILABLE" ? data.featured : false;
 
     const property = await prisma.property.update({
       where: { id },
@@ -54,8 +79,7 @@ export async function PATCH(
         slug: data.slug,
         description: data.description,
         price: data.price,
-        // @ts-ignore: IDE cache bug
-        purpose: data.purpose as any,
+        purpose: data.purpose,
         status: data.status,
         type: data.type,
         bedrooms: data.bedrooms,
@@ -70,8 +94,7 @@ export async function PATCH(
         zipCode: data.zipCode,
         country: data.country,
         amenities: data.amenities,
-        featured: data.featured,
-        deletedAt: null,
+        featured,
         images: {
           deleteMany: {},
           create: data.images.map((image, index) => ({
@@ -90,7 +113,7 @@ export async function PATCH(
     return NextResponse.json(property);
   } catch (error: any) {
     if (error.name === "ZodError") {
-      return NextResponse.json({ error: "Validation failed", issues: error.errors }, { status: 400 });
+      return NextResponse.json({ error: "Validation failed", issues: error.issues }, { status: 400 });
     }
     if (error.code === "P2002") {
       return NextResponse.json({ error: "A property with this slug already exists." }, { status: 409 });

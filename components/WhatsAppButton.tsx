@@ -3,11 +3,13 @@
 import { MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { PublicSiteSettings } from "@/types/settings";
+import { buildWhatsAppUrl } from "@/lib/whatsapp";
 
 export function WhatsAppButton({ settings }: { settings: PublicSiteSettings }) {
   const handleWhatsApp = () => {
     if (!settings.whatsappNumber) return;
-    const url = `https://wa.me/${settings.whatsappNumber}?text=${encodeURIComponent("Hi, I am interested in your real estate services.")}`;
+    const url = buildWhatsAppUrl(settings.whatsappNumber, "Hi, I am interested in your real estate services.");
+    if (!url) return;
     window.open(url, "_blank");
   };
 

@@ -10,6 +10,7 @@ import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Search, MapPin, Building, ShieldCheck, Star, TrendingUp, Users, Clock, Quote, MessageCircle } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { buildWhatsAppUrl } from "@/lib/whatsapp";
 
 const fadeIn = {
   hidden: { opacity: 0, y: 20 },
@@ -36,9 +37,7 @@ export function HomeClient({ featuredProperties, settings }: { featuredPropertie
   const [minBudget, setMinBudget] = useState("");
   const [maxBudget, setMaxBudget] = useState("");
   const locationWrapperRef = useRef<HTMLDivElement>(null);
-  const whatsappHref = settings.whatsappNumber
-    ? `https://wa.me/${settings.whatsappNumber}?text=${encodeURIComponent("Hi, I am interested in your real estate services.")}`
-    : "";
+  const whatsappHref = buildWhatsAppUrl(settings.whatsappNumber, "Hi, I am interested in your real estate services.");
 
   useEffect(() => {
     const query = location.trim();
@@ -123,7 +122,7 @@ export function HomeClient({ featuredProperties, settings }: { featuredPropertie
     event.preventDefault();
     const searchParams = new URLSearchParams();
     if (location.trim()) searchParams.set("location", location.trim());
-    if (type) searchParams.set("type", type);
+    if (type && type !== "ALL") searchParams.set("type", type);
     if (minBudget) searchParams.set("min", minBudget);
     if (maxBudget) searchParams.set("max", maxBudget);
     router.push(`/properties${searchParams.toString() ? `?${searchParams.toString()}` : ""}`);
@@ -202,7 +201,6 @@ export function HomeClient({ featuredProperties, settings }: { featuredPropertie
                   )}
                 </div>
                 <div className="flex-1 flex items-center px-4 bg-slate-50 rounded-xl border border-slate-100 hover:border-slate-300 focus-within:border-slate-300 focus-within:ring-1 focus-within:ring-slate-300 transition-all">
-                  <span className="text-slate-400 font-medium mr-1 shrink-0">$</span>
                   <input
                     type="number"
                     placeholder="Min Budget"
@@ -212,7 +210,6 @@ export function HomeClient({ featuredProperties, settings }: { featuredPropertie
                   />
                 </div>
                 <div className="flex-1 flex items-center px-3 bg-slate-50 rounded-xl border border-slate-100 hover:border-slate-300 focus-within:border-slate-300 focus-within:ring-1 focus-within:ring-slate-300 transition-all">
-                  <span className="text-slate-400 font-medium mr-1 shrink-0">$</span>
                   <input
                     type="number"
                     placeholder="Max Budget"
@@ -250,7 +247,7 @@ export function HomeClient({ featuredProperties, settings }: { featuredPropertie
 
             <motion.div variants={fadeIn} className="flex flex-col sm:flex-row gap-4">
               <Button size="lg" className="rounded-full px-8 h-14" asChild>
-                <Link href="/properties">View Rentals</Link>
+                <Link href="/properties?purpose=RENT&status=AVAILABLE">View Rentals</Link>
               </Button>
               <Button size="lg" variant="secondary" className="rounded-full px-8 h-14" asChild>
                 <Link href="/contact">Contact Us</Link>

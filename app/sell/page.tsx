@@ -1,6 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
 import { getSiteSettings } from "@/lib/settings";
 import { SellerForm } from "@/components/property/SellerForm";
 
@@ -15,11 +13,6 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function SellPropertyPage() {
-  const settings = await getSiteSettings();
-  const whatsappHref = settings.whatsappNumber
-    ? `https://wa.me/${settings.whatsappNumber}?text=${encodeURIComponent("Hi, I want to sell my property. Please guide me.")}`
-    : "";
-
   return (
     <div className="min-h-screen bg-slate-50 pt-28 pb-16">
       <div className="container mx-auto max-w-3xl px-4">

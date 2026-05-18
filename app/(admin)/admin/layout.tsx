@@ -15,11 +15,8 @@ import {
   Menu,
   ChevronRight,
   Globe,
-  Search,
-  UserRound,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import {
   Dialog,
@@ -114,10 +111,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 </SheetContent>
               </Sheet>
 
-              <div className="relative hidden w-72 md:block">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500 dark:text-slate-300" />
-                <Input placeholder="Search..." className="pl-9" />
-              </div>
+              <p className="hidden text-sm font-medium text-slate-500 dark:text-slate-300 md:block">
+                Admin workspace
+              </p>
             </div>
 
             <div className="flex items-center gap-2">
@@ -127,10 +123,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   View Website
                 </a>
               </Button>
-              <Button variant="outline" size="sm" className="hidden md:inline-flex">
-                <UserRound className="mr-2 h-4 w-4" />
-                Admin Profile
-              </Button>
+              <span className="hidden rounded-md border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-600 dark:border-slate-800 dark:text-slate-300 md:inline-flex">
+                Admin
+              </span>
               <Button variant="destructive" size="sm" onClick={() => setIsLogoutOpen(true)}>
                 <LogOut className="mr-2 h-4 w-4" />
                 Logout

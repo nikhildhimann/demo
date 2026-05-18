@@ -7,6 +7,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { BadgeDollarSign, Building2, ChevronDown, ChevronRight, Home, KeyRound, Menu, Star, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { buildWhatsAppUrl } from "@/lib/whatsapp";
 import type { PublicSiteSettings } from "@/types/settings";
 
 const desktopNavLinks = [
@@ -16,14 +17,14 @@ const desktopNavLinks = [
 ];
 
 const propertyMenuItems = [
-  { name: "Buy Property", href: "/properties?status=AVAILABLE", icon: Home },
-  { name: "Rent Property", href: "/properties?status=RENTED", icon: KeyRound },
+  { name: "Buy Property", href: "/properties?purpose=BUY&status=AVAILABLE", icon: Home },
+  { name: "Rent Property", href: "/properties?purpose=RENT&status=AVAILABLE", icon: KeyRound },
   { name: "Sell Property", href: "/sell", icon: BadgeDollarSign },
 ];
 
 const propertyListingItems = [
   { name: "All Properties", href: "/properties", icon: Home },
-  { name: "Featured Properties", href: "/properties?favorites=true", icon: Star },
+  { name: "Featured Properties", href: "/properties?featured=true", icon: Star },
 ];
 
 export function Navbar({ settings }: { settings: PublicSiteSettings }) {
@@ -67,9 +68,7 @@ export function Navbar({ settings }: { settings: PublicSiteSettings }) {
 
   if (pathname.startsWith("/admin")) return null;
 
-  const whatsappCta = settings.whatsappNumber
-    ? `https://wa.me/${settings.whatsappNumber}?text=${encodeURIComponent("Hi, I am interested in your real estate services.")}`
-    : "";
+  const whatsappCta = buildWhatsAppUrl(settings.whatsappNumber, "Hi, I am interested in your real estate services.");
   const isPropertiesActive = pathname.startsWith("/properties") || pathname === "/sell";
   const isLinkActive = (href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href));
 

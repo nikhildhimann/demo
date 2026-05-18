@@ -56,9 +56,9 @@ const interestOptions = [
 ];
 
 const budgetOptions = [
-  { label: "Under $500k", value: "under_500k" },
-  { label: "$500k – $1M", value: "500k_1m" },
-  { label: "$1M+", value: "above_1m" },
+  { label: "Under 500k", value: "under_500k" },
+  { label: "500k to 1M", value: "500k_1m" },
+  { label: "1M+", value: "above_1m" },
   { label: "Custom Budget", value: "custom" },
 ];
 
@@ -114,9 +114,9 @@ function isValidPhone(value: string) {
 }
 
 function budgetToQuery(budgetValue: string) {
-  if (budgetValue === "Under $500k") return { maxPrice: "500000" };
-  if (budgetValue === "$500k – $1M") return { minPrice: "500000", maxPrice: "1000000" };
-  if (budgetValue === "$1M+") return { minPrice: "1000000" };
+  if (budgetValue === "Under 500k") return { maxPrice: "500000" };
+  if (budgetValue === "500k to 1M") return { minPrice: "500000", maxPrice: "1000000" };
+  if (budgetValue === "1M+") return { minPrice: "1000000" };
   return {};
 }
 
@@ -565,7 +565,7 @@ export default function AIPropertyAssistant({ settings }: { settings: PublicSite
                             step === "location"
                               ? "Enter city or area"
                               : step === "customBudget"
-                                ? "Enter budget (e.g. $750k)"
+                                ? "Enter budget (e.g. 750k)"
                                 : step === "name"
                                   ? "Enter your name"
                                   : "Enter your phone number"

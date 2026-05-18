@@ -13,7 +13,7 @@ Netlify can host Next.js apps, but for this project Vercel is the safer choice b
 Run:
 
 ```bash
-npm install
+npm ci
 npm run lint
 npm run build
 ```
@@ -40,7 +40,7 @@ git push -u origin main
 
 ```text
 Framework Preset: Next.js
-Install Command: npm install
+Install Command: npm ci
 Build Command: npm run build
 Output Directory: leave empty
 ```

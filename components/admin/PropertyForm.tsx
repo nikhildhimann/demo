@@ -41,6 +41,11 @@ type PropertyFormValue = {
   country?: string;
 };
 
+type ValidationIssue = {
+  message?: string;
+  path?: (string | number)[];
+};
+
 const propertyTypes = ["APARTMENT", "HOUSE", "VILLA", "TOWNHOUSE", "COMMERCIAL", "LAND", "PLOT"];
 const propertyStatuses = ["AVAILABLE", "SOLD", "RENTED", "DRAFT"];
 const propertyPurposes = ["BUY", "RENT", "SELL"];
@@ -56,6 +61,19 @@ function slugify(value: string) {
     .replace(/--+/g, "-")
     .replace(/^-+/, "")
     .replace(/-+$/, "");
+}
+
+function getPropertySaveError(error: any) {
+  if (Array.isArray(error?.issues) && error.issues.length > 0) {
+    return error.issues
+      .map((issue: ValidationIssue) => {
+        const field = issue.path?.[0] ? `${issue.path[0]}: ` : "";
+        return `${field}${issue.message || "Invalid value"}`;
+      })
+      .join("\n");
+  }
+
+  return error?.error || "Unable to save property";
 }
 
 const emptyProperty: PropertyFormValue = {
@@ -82,7 +100,7 @@ const emptyProperty: PropertyFormValue = {
   country: "",
 };
 
-export function PropertyForm({ property }: { property?: PropertyFormValue }) {
+export function PropertyForm({ property, currency = "AUD" }: { property?: PropertyFormValue; currency?: string }) {
   const router = useRouter();
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -94,8 +112,8 @@ export function PropertyForm({ property }: { property?: PropertyFormValue }) {
   const initialValues = property || emptyProperty;
 
   const validationRules = {
-    title: { required: true, minLength: 3 },
-    slug: { required: true, minLength: 2 },
+    title: { required: true, minLength: 5 },
+    slug: { required: true, minLength: 3 },
     price: { required: true, min: 1 },
     city: { required: true, minLength: 2 },
     address: { required: true, minLength: 5 },
@@ -116,6 +134,12 @@ export function PropertyForm({ property }: { property?: PropertyFormValue }) {
   const totalImagesCount = existingImages.length + newFiles.length;
 
   const autoSlug = useMemo(() => slugify(values.title), [values.title]);
+  const currencyFormatter = useMemo(() => new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency,
+    currencyDisplay: "narrowSymbol",
+    maximumFractionDigits: 0,
+  }), [currency]);
 
   const previews = useMemo(
     () => newFiles.map((file) => ({ file, preview: URL.createObjectURL(file) })),
@@ -133,6 +157,23 @@ export function PropertyForm({ property }: { property?: PropertyFormValue }) {
     if (!values.slug || values.slug === autoSlug) {
       setValue("slug", slugify(value));
     }
+  };
+
+  const handleStatusChange = (status: string) => {
+    setValue("status", status);
+    if (status !== "AVAILABLE" && values.featured) {
+      setValue("featured", false);
+      toast.info("Only available properties can be featured.");
+    }
+  };
+
+  const handleFeaturedChange = (checked: boolean) => {
+    if (checked && values.status !== "AVAILABLE") {
+      toast.error("Only available properties can be featured.");
+      return;
+    }
+
+    setValue("featured", checked);
   };
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -267,7 +308,7 @@ export function PropertyForm({ property }: { property?: PropertyFormValue }) {
 
       if (!response.ok) {
         const error = await response.json().catch(() => null);
-        throw new Error(error?.error || "Unable to save property");
+        throw new Error(getPropertySaveError(error));
       }
 
       toast.success(property?.id ? "Property updated" : "Property created");
@@ -326,7 +367,7 @@ export function PropertyForm({ property }: { property?: PropertyFormValue }) {
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-1.5">
-                      <Label htmlFor="price" className="text-xs font-semibold text-slate-700">Price ($)</Label>
+                      <Label htmlFor="price" className="text-xs font-semibold text-slate-700">Price {currency ? `(${currency})` : ""}</Label>
                       <Input
                         id="price"
                         type="number"
@@ -396,7 +437,7 @@ export function PropertyForm({ property }: { property?: PropertyFormValue }) {
                 <div className="grid grid-cols-1 gap-4">
                   <div className="space-y-1.5">
                     <Label className="text-xs font-semibold text-slate-700">Status</Label>
-                    <Select value={values.status} onValueChange={(value) => setValue("status", value)}>
+                    <Select value={values.status} onValueChange={handleStatusChange}>
                       <SelectTrigger className="h-10 rounded-lg border-slate-200 transition-all focus:ring-2 focus:ring-primary/20 text-sm">
                         <SelectValue placeholder="Select" />
                       </SelectTrigger>
@@ -446,7 +487,7 @@ export function PropertyForm({ property }: { property?: PropertyFormValue }) {
                   </div>
                   <div className="flex items-center gap-3 pt-6">
                     <div className="flex items-center space-x-2 bg-slate-50 border border-slate-200 px-3 py-2 rounded-lg cursor-pointer hover:bg-slate-100 transition-colors w-full">
-                      <Checkbox id="featured" checked={values.featured} onCheckedChange={(checked) => setValue("featured", Boolean(checked))} />
+                      <Checkbox id="featured" checked={values.featured} onCheckedChange={(checked) => handleFeaturedChange(Boolean(checked))} />
                       <Label htmlFor="featured" className="text-xs font-semibold text-slate-700 cursor-pointer">Featured Listing</Label>
                     </div>
                   </div>
@@ -626,7 +667,7 @@ export function PropertyForm({ property }: { property?: PropertyFormValue }) {
             <CardContent className="p-4 space-y-3">
               <div className="space-y-1">
                 <div className="flex items-center gap-1.5 text-primary text-base font-black tracking-tight">
-                  {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(values.price || 0)}
+                  {currencyFormatter.format(values.price || 0)}
                   {values.purpose === "RENT" && <span className="text-[10px] font-bold text-slate-400">/ month</span>}
                 </div>
                 <h4 className="text-sm font-bold text-slate-900 leading-tight line-clamp-1">

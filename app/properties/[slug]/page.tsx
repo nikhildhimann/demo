@@ -82,10 +82,8 @@ export default async function PropertyPage({ params }: { params: Promise<{ slug:
     address: property.address,
     price: property.price,
     phone: agent.phone,
-    // @ts-ignore
     purpose: property.purpose,
     type: property.type,
-    // @ts-ignore
     location: property.location || property.city,
   };
   const displaySize = property.size || property.area;
@@ -104,7 +102,6 @@ export default async function PropertyPage({ params }: { params: Promise<{ slug:
       streetAddress: property.address,
       addressLocality: property.city,
       addressRegion: property.state,
-      // @ts-ignore
       postalCode: property.zipCode || property.zip,
       addressCountry: property.country,
     },
@@ -162,7 +159,6 @@ export default async function PropertyPage({ params }: { params: Promise<{ slug:
                 {property.type}
               </Badge>
               <Badge className="bg-blue-50 text-blue-700 border border-blue-200 px-3 py-1 uppercase tracking-wider text-xs font-bold">
-                {/* @ts-ignore */}
                 {property.purpose}
               </Badge>
             </div>
@@ -234,13 +230,11 @@ export default async function PropertyPage({ params }: { params: Promise<{ slug:
                 {[
                   [
                     "Purpose", 
-                    // @ts-ignore
                     property.purpose
                   ],
                   ["Type", property.type],
                   [
                     "Location", 
-                    // @ts-ignore
                     property.location || property.city
                   ],
                   ["City", property.city],

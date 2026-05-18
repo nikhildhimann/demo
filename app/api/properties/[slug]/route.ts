@@ -17,14 +17,6 @@ export async function GET(
         images: {
           orderBy: { order: "asc" },
         },
-        author: {
-          select: {
-            name: true,
-            email: true,
-            image: true,
-            phone: true,
-          },
-        },
       },
     });
 

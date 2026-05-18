@@ -1,11 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, CheckCircle, Store, MapPin, DollarSign, Calendar } from "lucide-react";
+import { Loader2, CheckCircle, Store, MapPin, Calendar, MessageCircle } from "lucide-react";
 import { z } from "zod";
 
 const sellerFormSchema = z.object({
@@ -20,6 +19,24 @@ const sellerFormSchema = z.object({
 });
 
 type SellerFormData = z.infer<typeof sellerFormSchema>;
+
+type ApiIssue = {
+  message?: string;
+  path?: (string | number)[];
+};
+
+function getApiErrorMessage(data: any, fallback: string) {
+  if (Array.isArray(data?.issues) && data.issues.length > 0) {
+    return data.issues
+      .map((issue: ApiIssue) => {
+        const field = issue.path?.[0] ? `${issue.path[0]}: ` : "";
+        return `${field}${issue.message || "Invalid value"}`;
+      })
+      .join("\n");
+  }
+
+  return data?.error || fallback;
+}
 
 export function SellerForm() {
   const [formData, setFormData] = useState<SellerFormData>({
@@ -37,6 +54,7 @@ export function SellerForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [apiError, setApiError] = useState("");
+  const [successWhatsAppUrl, setSuccessWhatsAppUrl] = useState("");
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -51,6 +69,7 @@ export function SellerForm() {
     e.preventDefault();
     setIsSubmitting(true);
     setApiError("");
+    setSuccessWhatsAppUrl("");
     setErrors({});
 
     try {
@@ -78,9 +97,10 @@ export function SellerForm() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "Something went wrong.");
+        throw new Error(getApiErrorMessage(data, "Something went wrong."));
       }
 
+      setSuccessWhatsAppUrl(data?.whatsappUrl || "");
       setIsSuccess(true);
       setFormData({ name: "", phone: "", email: "", address: "", propertyType: "", expectedPrice: "", timeline: "", message: "" });
     } catch (err: any) {
@@ -106,6 +126,14 @@ export function SellerForm() {
         <p className="max-w-md text-slate-600">
           Thank you! Our local area expert has received your details and will contact you within 24 hours to discuss your property valuation.
         </p>
+        {successWhatsAppUrl && (
+          <Button asChild className="mt-2 bg-emerald-600 text-white hover:bg-emerald-700">
+            <a href={successWhatsAppUrl} target="_blank" rel="noreferrer">
+              <MessageCircle className="mr-2 h-4 w-4" />
+              Continue on WhatsApp
+            </a>
+          </Button>
+        )}
         <Button onClick={() => setIsSuccess(false)} variant="outline" className="mt-4">
           Submit Another Property
         </Button>
@@ -161,10 +189,7 @@ export function SellerForm() {
         
         <div className="space-y-2">
           <label htmlFor="expectedPrice" className="text-sm font-medium text-slate-700">Expected Price *</label>
-          <div className="relative">
-            <DollarSign className="absolute left-3 top-3 h-5 w-5 text-slate-400" />
-            <Input id="expectedPrice" name="expectedPrice" value={formData.expectedPrice} onChange={handleChange} placeholder="e.g. $800,000" className="pl-10" disabled={isSubmitting} />
-          </div>
+          <Input id="expectedPrice" name="expectedPrice" value={formData.expectedPrice} onChange={handleChange} placeholder="e.g. 800,000" disabled={isSubmitting} />
           {errors.expectedPrice && <p className="text-xs text-red-500">{errors.expectedPrice}</p>}
         </div>
 

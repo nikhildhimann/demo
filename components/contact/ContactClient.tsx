@@ -11,14 +11,32 @@ import { MapEmbed } from "@/components/MapEmbed";
 import { useFormValidation } from "@/hooks/useFormValidation";
 import type { PublicSiteSettings } from "@/types/settings";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { buildWhatsAppUrl } from "@/lib/whatsapp";
+
+type ApiIssue = {
+  message?: string;
+  path?: (string | number)[];
+};
+
+function getApiErrorMessage(data: any, fallback: string) {
+  if (Array.isArray(data?.issues) && data.issues.length > 0) {
+    return data.issues
+      .map((issue: ApiIssue) => {
+        const field = issue.path?.[0] ? `${issue.path[0]}: ` : "";
+        return `${field}${issue.message || "Invalid value"}`;
+      })
+      .join("\n");
+  }
+
+  return data?.error || fallback;
+}
 
 export default function ContactClient({ settings }: { settings: PublicSiteSettings }) {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [successWhatsAppUrl, setSuccessWhatsAppUrl] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const whatsappUrl = settings.whatsappNumber
-    ? `https://wa.me/${settings.whatsappNumber}?text=${encodeURIComponent("Hi, I am interested in your real estate services.")}`
-    : "";
+  const whatsappUrl = buildWhatsAppUrl(settings.whatsappNumber, "Hi, I am interested in your real estate services.");
 
   const validationRules = {
     name: { required: true, minLength: 2 },
@@ -35,6 +53,7 @@ export default function ContactClient({ settings }: { settings: PublicSiteSettin
     e.preventDefault();
     setError("");
     setSuccess("");
+    setSuccessWhatsAppUrl("");
 
     if (!validateAll()) {
       setError("Please fix the errors below");
@@ -60,8 +79,9 @@ export default function ContactClient({ settings }: { settings: PublicSiteSettin
       });
 
       const data = await response.json().catch(() => null);
-      if (!response.ok) throw new Error(data?.error || "Unable to send enquiry");
+      if (!response.ok) throw new Error(getApiErrorMessage(data, "Unable to send enquiry"));
 
+      setSuccessWhatsAppUrl(data?.whatsappUrl || "");
       setSuccess(data?.whatsappUrl ? "Thanks! Your enquiry is saved. You can continue on WhatsApp for a faster next step." : "Thanks! Our agent will contact you within 10 minutes.");
       resetForm();
     } catch (err: any) {
@@ -118,9 +138,13 @@ export default function ContactClient({ settings }: { settings: PublicSiteSettin
                     </div>
                     <div>
                       <h3 className="font-semibold text-lg">Phone</h3>
-                      <p className="text-slate-700 mt-1 transition-colors cursor-pointer hover:text-slate-950">
-                        {settings.phone || "Phone not configured"}
-                      </p>
+                      {settings.phone ? (
+                        <a href={`tel:${settings.phone}`} className="mt-1 block text-slate-700 transition-colors hover:text-slate-950">
+                          {settings.phone}
+                        </a>
+                      ) : (
+                        <p className="text-slate-700 mt-1">Phone not configured</p>
+                      )}
                       <p className="text-slate-500 text-sm mt-1">{settings.businessHours}</p>
                     </div>
                   </div>
@@ -131,9 +155,13 @@ export default function ContactClient({ settings }: { settings: PublicSiteSettin
                     </div>
                     <div>
                       <h3 className="font-semibold text-lg">Email</h3>
-                      <p className="text-slate-700 mt-1 transition-colors cursor-pointer hover:text-slate-950">
-                        {settings.email || "Email not configured"}
-                      </p>
+                      {settings.email ? (
+                        <a href={`mailto:${settings.email}`} className="mt-1 block text-slate-700 transition-colors hover:text-slate-950">
+                          {settings.email}
+                        </a>
+                      ) : (
+                        <p className="text-slate-700 mt-1">Email not configured</p>
+                      )}
                       <p className="text-slate-500 text-sm mt-1">Online support 24/7</p>
                     </div>
                   </div>
@@ -259,6 +287,14 @@ export default function ContactClient({ settings }: { settings: PublicSiteSettin
 
                 {error && <p className="text-sm font-medium text-destructive">{error}</p>}
                 {success && <p className="text-sm font-medium text-emerald-600">{success}</p>}
+                {successWhatsAppUrl && (
+                  <Button type="button" variant="outline" className="w-full border-emerald-500 text-emerald-700 hover:bg-emerald-50" asChild>
+                    <a href={successWhatsAppUrl} target="_blank" rel="noreferrer">
+                      <MessageCircle className="mr-2 h-5 w-5" />
+                      Continue on WhatsApp
+                    </a>
+                  </Button>
+                )}
 
                 <Button type="submit" className="w-full h-14 text-lg font-bold rounded-xl shadow-md transition-transform hover:scale-[1.01]" disabled={isLoading}>
                   {isLoading ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <Send className="w-5 h-5 mr-2" />}

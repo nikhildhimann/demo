@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { formatPrice } from "@/lib/utils";
 import type { PublicSiteSettings } from "@/types/settings";
 
@@ -20,6 +21,7 @@ type AdminProperty = {
   price: number;
   city: string;
   type: string;
+  purpose: string;
   status: string;
   featured: boolean;
   deletedAt: Date | string | null;
@@ -27,55 +29,86 @@ type AdminProperty = {
   updatedAt: Date | string;
 };
 
+const propertyStatuses = ["AVAILABLE", "SOLD", "RENTED", "DRAFT"];
+const propertyTypes = ["APARTMENT", "HOUSE", "VILLA", "TOWNHOUSE", "COMMERCIAL", "LAND", "PLOT"];
+const propertyPurposes = ["BUY", "RENT", "SELL"];
+
 export function AdminPropertiesClient({ properties, settings }: { properties: AdminProperty[]; settings: PublicSiteSettings }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState(searchParams.get("status") || "all");
+  const [typeFilter, setTypeFilter] = useState(searchParams.get("type") || "all");
+  const [purposeFilter, setPurposeFilter] = useState(searchParams.get("purpose") || "all");
+  const [featuredFilter, setFeaturedFilter] = useState(searchParams.get("featured") === "true" ? "true" : "all");
+  const [pendingPropertyId, setPendingPropertyId] = useState<string | null>(null);
 
   useEffect(() => {
-    const status = searchParams.get("status");
-    if (status) {
-      setStatusFilter(status);
-    } else {
-      setStatusFilter("all");
-    }
+    setStatusFilter(searchParams.get("status") || "all");
+    setTypeFilter(searchParams.get("type") || "all");
+    setPurposeFilter(searchParams.get("purpose") || "all");
+    setFeaturedFilter(searchParams.get("featured") === "true" ? "true" : "all");
   }, [searchParams]);
 
-  const handleStatusFilterChange = (status: string) => {
-    setStatusFilter(status);
+  const handleFilterChange = (key: "status" | "type" | "purpose" | "featured", value: string) => {
+    if (key === "status") setStatusFilter(value);
+    if (key === "type") setTypeFilter(value);
+    if (key === "purpose") setPurposeFilter(value);
+    if (key === "featured") setFeaturedFilter(value);
+
     const params = new URLSearchParams(window.location.search);
-    if (status === "all") {
-      params.delete("status");
+    if (value === "all") {
+      params.delete(key);
     } else {
-      params.set("status", status);
+      params.set(key, value);
     }
     router.push(`/admin/properties?${params.toString()}`);
   };
 
   const softDelete = async (id: string) => {
     if (!confirm("Soft delete this property? It will be hidden from the public site.")) return;
-    const response = await fetch(`/api/admin/properties/${id}`, { method: "DELETE" });
-    if (response.ok) {
-      toast.success("Property deleted");
-      router.refresh();
-    } else {
-      toast.error("Unable to delete property");
+    if (pendingPropertyId) return;
+
+    setPendingPropertyId(id);
+    try {
+      const response = await fetch(`/api/admin/properties/${id}`, { method: "DELETE" });
+      if (response.ok) {
+        toast.success("Property deleted");
+        router.refresh();
+      } else {
+        toast.error("Unable to delete property");
+      }
+    } finally {
+      setPendingPropertyId(null);
     }
   };
 
-  const updateQuick = async (id: string, data: { status?: string; featured?: boolean }) => {
-    const response = await fetch(`/api/admin/properties/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-    });
-    if (response.ok) {
-      toast.success("Property updated");
-      router.refresh();
+  const updateQuick = async (property: AdminProperty, data: { status?: string; featured?: boolean }) => {
+    if (pendingPropertyId) return;
+
+    const nextStatus = data.status || property.status;
+    if (data.featured === true && nextStatus !== "AVAILABLE") {
+      toast.error("Only available properties can be featured.");
       return;
     }
-    toast.error("Unable to update property");
+
+    setPendingPropertyId(property.id);
+    try {
+      const response = await fetch(`/api/admin/properties/${property.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (response.ok) {
+        toast.success(nextStatus !== "AVAILABLE" && property.featured ? "Property updated and removed from featured" : "Property updated");
+        router.refresh();
+        return;
+      }
+      const error = await response.json().catch(() => null);
+      toast.error(error?.error || "Unable to update property");
+    } finally {
+      setPendingPropertyId(null);
+    }
   };
 
   const filtered = useMemo(() => {
@@ -87,9 +120,12 @@ export function AdminPropertiesClient({ properties, settings }: { properties: Ad
         property.city.toLowerCase().includes(q) ||
         property.slug.toLowerCase().includes(q);
       const matchesStatus = statusFilter === "all" || property.status === statusFilter;
-      return matchesQuery && matchesStatus;
+      const matchesType = typeFilter === "all" || property.type === typeFilter;
+      const matchesPurpose = purposeFilter === "all" || property.purpose === purposeFilter;
+      const matchesFeatured = featuredFilter === "all" || property.featured;
+      return matchesQuery && matchesStatus && matchesType && matchesPurpose && matchesFeatured;
     });
-  }, [properties, query, statusFilter]);
+  }, [properties, query, statusFilter, typeFilter, purposeFilter, featuredFilter]);
 
   return (
     <div className="w-full min-h-screen space-y-6 p-4 sm:p-6 md:space-y-8 md:p-8">
@@ -113,17 +149,43 @@ export function AdminPropertiesClient({ properties, settings }: { properties: Ad
             <Input placeholder="Search properties..." value={query} onChange={(e) => setQuery(e.target.value)} className="pl-9" />
           </div>
           <div className="flex w-full flex-wrap gap-2 md:w-auto md:justify-end">
-            {["all", "AVAILABLE", "SOLD", "RENTED", "DRAFT"].map((status) => (
+            {["all", ...propertyStatuses].map((status) => (
               <Button
                 key={status}
                 variant={statusFilter === status ? "default" : "outline"}
                 size="sm"
                 className="h-8 flex-none px-3 text-xs sm:text-sm"
-                onClick={() => handleStatusFilterChange(status)}
+                onClick={() => handleFilterChange("status", status)}
               >
                 {status === "all" ? "All" : status}
               </Button>
             ))}
+            <Select value={typeFilter} onValueChange={(value) => handleFilterChange("type", value)}>
+              <SelectTrigger className="h-8 w-full text-xs sm:w-40 sm:text-sm">
+                <SelectValue placeholder="Type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Types</SelectItem>
+                {propertyTypes.map((type) => <SelectItem key={type} value={type}>{type}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Select value={purposeFilter} onValueChange={(value) => handleFilterChange("purpose", value)}>
+              <SelectTrigger className="h-8 w-full text-xs sm:w-36 sm:text-sm">
+                <SelectValue placeholder="Purpose" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Purposes</SelectItem>
+                {propertyPurposes.map((purpose) => <SelectItem key={purpose} value={purpose}>{purpose}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Button
+              variant={featuredFilter === "true" ? "default" : "outline"}
+              size="sm"
+              className="h-8 flex-none px-3 text-xs sm:text-sm"
+              onClick={() => handleFilterChange("featured", featuredFilter === "true" ? "all" : "true")}
+            >
+              Featured
+            </Button>
           </div>
         </div>
 
@@ -131,6 +193,10 @@ export function AdminPropertiesClient({ properties, settings }: { properties: Ad
           <Card className="p-10 text-center text-muted-foreground">No properties yet. Add your first listing to publish the site.</Card>
         ) : filtered.map((property) => (
           <Card key={property.id} className="flex min-w-0 flex-col gap-4 p-4 md:flex-row md:items-center">
+            {(() => {
+              const isPending = pendingPropertyId === property.id;
+              return (
+                <>
             <div className="relative h-28 w-full md:w-40 rounded-lg overflow-hidden bg-muted shrink-0">
               {property.images[0]?.url ? (
                 <Image src={property.images[0].url} alt={property.title} fill className="object-cover" unoptimized />
@@ -143,6 +209,7 @@ export function AdminPropertiesClient({ properties, settings }: { properties: Ad
                 {property.deletedAt && <Badge variant="destructive">Deleted</Badge>}
                 <Badge variant="outline">{property.status}</Badge>
                 <Badge variant="secondary">{property.type}</Badge>
+                <Badge variant="secondary">{property.purpose}</Badge>
               </div>
               <p className="text-sm text-muted-foreground">{property.city} · {formatPrice(property.price, settings.currency)}</p>
               <p className="text-xs text-muted-foreground mt-1">/{property.slug}</p>
@@ -152,18 +219,20 @@ export function AdminPropertiesClient({ properties, settings }: { properties: Ad
                 variant={property.featured ? "default" : "outline"}
                 size="sm"
                 className="h-8 flex-none px-3 text-xs sm:text-sm"
-                onClick={() => updateQuick(property.id, { featured: !property.featured })}
+                disabled={isPending}
+                onClick={() => updateQuick(property, { featured: !property.featured })}
               >
                 <Star className="mr-2 h-4 w-4" />
                 {property.featured ? "Unfeature" : "Feature"}
               </Button>
-              {["AVAILABLE", "SOLD", "RENTED", "DRAFT"].map((status) => (
+              {propertyStatuses.map((status) => (
                 <Button
                   key={status}
                   variant={property.status === status ? "default" : "outline"}
                   size="sm"
                   className="h-8 flex-none px-3 text-xs sm:text-sm"
-                  onClick={() => updateQuick(property.id, { status })}
+                  disabled={isPending}
+                  onClick={() => updateQuick(property, { status })}
                 >
                   {status}
                 </Button>
@@ -180,11 +249,14 @@ export function AdminPropertiesClient({ properties, settings }: { properties: Ad
                   Edit
                 </Link>
               </Button>
-              <Button variant="destructive" size="sm" className="h-8 flex-none px-3 text-xs sm:text-sm" onClick={() => softDelete(property.id)}>
+              <Button variant="destructive" size="sm" className="h-8 flex-none px-3 text-xs sm:text-sm" disabled={isPending} onClick={() => softDelete(property.id)}>
                 <Trash2 className="mr-2 h-4 w-4" />
                 Delete
               </Button>
             </div>
+                </>
+              );
+            })()}
           </Card>
         ))}
       </div>
